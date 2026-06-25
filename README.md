@@ -16,6 +16,8 @@ Rajeev Kumar
 
 ## What I Learned This Week
 
-- Repository setup
-- GitHub basics
-- Project planning
+- Learned how to create and manage a GitHub repository.
+- Learned basic Git commands like clone, add, commit and push.
+- Learned how to set up a Python virtual environment.
+- Learned how to extract text from a PDF using PyMuPDF.
+- Understood the first step of a RAG pipeline: document ingestion.
