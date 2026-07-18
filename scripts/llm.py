@@ -1,0 +1,82 @@
+import os
+import time
+from dotenv import load_dotenv
+from google import genai
+
+# -----------------------------
+# Load Environment Variables
+# -----------------------------
+load_dotenv()
+
+# -----------------------------
+# Create Gemini Client
+# -----------------------------
+client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
+)
+
+
+def generate_answer(question, context):
+    """
+    Generates an answer using Gemini based only on the retrieved document context.
+    """
+
+    prompt = f"""
+You are an AI assistant for document question answering.
+
+Use ONLY the information provided in the context below.
+
+If the answer is not available in the context, reply exactly:
+
+"I could not find this information in the document."
+
+======================
+Context
+======================
+
+{context}
+
+======================
+Question
+======================
+
+{question}
+
+======================
+Answer
+======================
+"""
+
+    # Retry if Gemini is temporarily busy
+    for attempt in range(3):
+
+        try:
+
+            response = client.models.generate_content(
+                model="gemini-3.1-flash-lite",
+                contents=prompt
+            )
+
+            return response.text
+
+        except Exception as e:
+
+            error = str(e)
+
+            # Retry if server is busy
+            if "503" in error or "UNAVAILABLE" in error:
+                print(f"Gemini busy... Retrying ({attempt + 1}/3)")
+                time.sleep(5)
+                continue
+
+            # Quota exceeded
+            if "429" in error or "RESOURCE_EXHAUSTED" in error:
+                return (
+                    "Gemini API quota exceeded.\n"
+                    "Please wait a few minutes and try again."
+                )
+
+            # Any other error
+            return f"Gemini API Error:\n{error}"
+
+    return "Gemini service is currently unavailable. Please try again later."

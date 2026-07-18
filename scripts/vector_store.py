@@ -1,55 +1,83 @@
 from pathlib import Path
+
 import chromadb
 from sentence_transformers import SentenceTransformer
+
 from chunker import extract_text, chunk_text
 
-# -----------------------------
-# Load embedding model
-# -----------------------------
+# ------------------------------------------------
+# Paths
+# ------------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = BASE_DIR / "data" / "processed" / "chroma_db"
+
+# ------------------------------------------------
+# Load Embedding Model
+# ------------------------------------------------
+
+print("Loading embedding model...")
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# -----------------------------
-# Locate PDF
-# -----------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
-pdf_path = BASE_DIR / "data" / "raw" / "sample_document.pdf"
 
-# -----------------------------
-# Extract and chunk text
-# -----------------------------
-text = extract_text(pdf_path)
-chunks = chunk_text(text)
+def process_pdf(pdf_path):
+    """
+    Process a PDF and store its embeddings along with metadata.
+    """
 
-# -----------------------------
-# Generate embeddings
-# -----------------------------
-embeddings = model.encode(chunks)
+    print("Extracting text...")
+    text = extract_text(pdf_path)
 
-# -----------------------------
-# Create persistent ChromaDB
-# -----------------------------
-db_path = BASE_DIR / "data" / "processed" / "chroma_db"
+    print("Chunking...")
+    chunks = chunk_text(
+        text=text,
+        chunk_size=500,
+        overlap=50,
+    )
 
-client = chromadb.PersistentClient(path=str(db_path))
+    print(f"Total Chunks: {len(chunks)}")
 
-collection = client.get_or_create_collection(
-    name="intellidocs"
-)
+    print("Generating embeddings...")
+    embeddings = model.encode(chunks)
 
-# -----------------------------
-# Store data
-# -----------------------------
-collection.add(
-    ids=[f"chunk_{i}" for i in range(len(chunks))],
-    documents=chunks,
-    embeddings=embeddings.tolist()
-)
+    client = chromadb.PersistentClient(path=str(DB_PATH))
 
-print("=" * 50)
-print("IntelliDocs-AI - ChromaDB Storage")
-print("=" * 50)
+    try:
+        client.delete_collection("intellidocs")
+        print("Old collection deleted.")
+    except Exception:
+        print("No previous collection found.")
 
-print(f"Database Location : {db_path}")
-print(f"Chunks Stored     : {collection.count()}")
+    collection = client.create_collection("intellidocs")
 
-print("\nEmbeddings successfully stored in ChromaDB.")
+    collection.add(
+        ids=[f"chunk_{i}" for i in range(len(chunks))],
+        documents=chunks,
+        embeddings=embeddings.tolist(),
+        metadatas=[
+            {
+                "source": pdf_path.name,
+                "chunk": i + 1,
+            }
+            for i in range(len(chunks))
+        ],
+    )
+
+    print("=" * 60)
+    print("IntelliDocs-AI")
+    print("=" * 60)
+    print(f"Database Location : {DB_PATH}")
+    print(f"Chunks Stored     : {collection.count()}")
+    print("Metadata Stored   : Source + Chunk Number")
+    print("Embeddings stored successfully.")
+
+    return len(chunks)
+
+
+if __name__ == "__main__":
+
+    pdf_path = BASE_DIR / "data" / "raw" / "sample_document.pdf"
+
+    total = process_pdf(pdf_path)
+
+    print(f"\nStored {total} chunks successfully.")
