@@ -216,3 +216,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# -----------------------------
+# IntelliDocs-AI Project Files
+# -----------------------------
+
+# ChromaDB generated files
+data/processed/chroma_db/
+
+# Uploaded PDF documents
+data/uploads/
+
+# Processed output files (optional)
+data/processed/*.json
+data/processed/*.db
+data/processed/*.sqlite3
+
+# Local environment variables
+.env
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
