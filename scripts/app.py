@@ -5,7 +5,7 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer
 
 from llm import generate_answer
-from vector_store import process_pdf
+from vector_store import process_pdf, clear_database
 
 # ------------------------------------------------
 # Base Directory
@@ -36,26 +36,41 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 # ------------------------------------------------
 # Upload PDF
 # ------------------------------------------------
-
-uploaded_file = st.file_uploader(
-    "📂 Upload a PDF",
-    type=["pdf"]
+uploaded_files = st.file_uploader(
+    "📂 Upload Two PDFs",
+    type=["pdf"],
+    accept_multiple_files=True
 )
 
-if uploaded_file is not None:
+if uploaded_files:
 
-    pdf_path = UPLOAD_FOLDER / uploaded_file.name
+    clear_database()
 
-    with open(pdf_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+    total_chunks = 0
 
-    with st.spinner("Processing PDF..."):
+    with st.spinner("Processing PDFs..."):
 
-        total_chunks = process_pdf(pdf_path)
+        for uploaded_file in uploaded_files:
 
-    st.success("✅ PDF processed successfully!")
-    st.info(f"🧩 Chunks Created: {total_chunks}")
+            st.write(f"📄 Processing: {uploaded_file.name}")
 
+            pdf_path = UPLOAD_FOLDER / uploaded_file.name
+
+            with open(pdf_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+
+            chunks = process_pdf(pdf_path)
+
+            st.write(f"✅ Stored {chunks} chunks from {uploaded_file.name}")
+
+            total_chunks += chunks
+
+    st.success(f"✅ {len(uploaded_files)} PDFs processed successfully!")
+    st.info(f"🧩 Total Chunks Created: {total_chunks}")
+    st.subheader("📂 Uploaded Documents")
+
+    for pdf in uploaded_files:
+        st.write(f"✅ {pdf.name}")
 # ------------------------------------------------
 # Load Embedding Model
 # ------------------------------------------------
@@ -79,7 +94,9 @@ client = chromadb.PersistentClient(path=str(db_path))
 # Question Input
 # ------------------------------------------------
 
-query = st.text_input("Ask a question about your document")
+query = st.text_input(
+    "💬 Ask a question (e.g., 'Compare the two documents on Machine Learning')"
+)
 
 # ------------------------------------------------
 # Generate Answer
@@ -97,20 +114,28 @@ if st.button("Generate Answer"):
         st.error("No document found. Please upload a PDF first.")
         st.stop()
 
-    with st.spinner("Searching document..."):
+    with st.spinner("Searching documents..."):
 
         query_embedding = model.encode([query]).tolist()
 
         results = collection.query(
             query_embeddings=query_embedding,
-            n_results=3,
+            n_results=12,
             include=["documents", "metadatas"],
         )
 
         documents = results["documents"][0]
         metadatas = results["metadatas"][0]
+  
 
-        context = "\n\n".join(documents)
+        context = ""
+
+        for doc, meta in zip(documents, metadatas):
+            context += (
+                f"Document: {meta['source']}\n"
+                f"Chunk: {meta['chunk']}\n"
+                f"Content:\n{doc}\n\n"
+            )
 
     with st.spinner("Generating answer..."):
 
@@ -128,11 +153,8 @@ if st.button("Generate Answer"):
 
     st.subheader("📄 Retrieved Context")
 
-    for i, (doc, meta) in enumerate(zip(documents, metadatas), start=1):
-
-        with st.expander(f"Chunk {i}"):
-
-            st.markdown(f"**📄 Source:** `{meta['source']}`")
-            st.markdown(f"**📍 Chunk Number:** `{meta['chunk']}`")
-
+    for doc, meta in zip(documents, metadatas):
+        with st.expander(f"📄 {meta['source']} | Chunk {meta['chunk']}"):
             st.write(doc)
+
+ 

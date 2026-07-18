@@ -22,29 +22,44 @@ def generate_answer(question, context):
     """
 
     prompt = f"""
-You are an AI assistant for document question answering.
+You are an AI assistant for document question answering and document comparison.
 
-Use ONLY the information provided in the context below.
+You must answer ONLY using the provided context.
 
-If the answer is not available in the context, reply exactly:
+The context may contain information from one or more uploaded PDF documents.
 
-"I could not find this information in the document."
+Rules:
 
-======================
-Context
-======================
+1. If the user asks a normal question, answer using the retrieved context.
+
+2. If the user asks to compare documents or asks for differences or similarities:
+
+- Clearly mention each document by its filename.
+- Explain similarities.
+- Explain differences.
+- If only one document discusses the topic, mention that.
+
+3. Never invent information.
+
+4. If the answer cannot be found in the provided context, reply exactly:
+
+"I could not find this information in the uploaded document(s)."
+
+=========================
+Retrieved Context
+=========================
 
 {context}
 
-======================
-Question
-======================
+=========================
+User Question
+=========================
 
 {question}
 
-======================
+=========================
 Answer
-======================
+=========================
 """
 
     # Retry if Gemini is temporarily busy
