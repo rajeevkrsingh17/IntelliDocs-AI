@@ -1,0 +1,298 @@
+{
+  "timestamp": "2026-07-21 16:16:44",
+  "total_cases": 22,
+  "summary": {
+    "avg_correctness": 3.45,
+    "avg_citation_precision": 4.27,
+    "avg_completeness": 3.45,
+    "guardrail_success_rate": 100.0
+  },
+  "results": [
+    {
+      "id": 1,
+      "category": "Ingestion & Document Processing",
+      "question": "What PDF parser does IntelliDocs-AI use for text extraction?",
+      "expected": "PyMuPDF (fitz) is used as the primary PDF parser.",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 2,
+      "category": "Ingestion & Document Processing",
+      "question": "What is the text chunk size and overlap configuration?",
+      "expected": "500 to 800 characters chunk size and 50 characters / sentence overlap.",
+      "generated": "I could not find information regarding the specific **text chunk size** or **overlap configuration** (typically used in RAG indexing strategies) in the provided document. The document focuses on **Python programming fundamentals**, **file handling operations**, and **meteorological data formats** rather than technical settings for AI document processing pipelines.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 5,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 3,
+      "category": "Ingestion & Document Processing",
+      "question": "How does the system handle tables in PDF documents?",
+      "expected": "It extracts tables structurally using PyMuPDF's find_tables() and formats them as Markdown tables.",
+      "generated": "I could not find this information in the uploaded document(s). The provided text focuses on Python file handling, database management (specifically SQLite), path manipulation, and scientific data formats (such as NetCDF, GRIB, CSV, and HDF), but it does not contain instructions or explanations regarding how the system processes or handles tables found within PDF documents.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 4,
+      "category": "Ingestion & Document Processing",
+      "question": "How does the system handle images in PDF documents?",
+      "expected": "It detects embedded images and inserts structural placeholders like '[Image Placeholder]'.",
+      "generated": "I could not find this information in the uploaded document(s). \n\nWhile the provided text covers **File Handling** operations (such as opening, reading, writing, and closing standard files), **Path Manipulation** using the `os` module, and **Scientific Computing** libraries like `NumPy` and `SciPy`, it does not contain specific instructions or methods for extracting or handling images embedded within PDF documents. \n\nThe document does mention the use of `plt.imshow()` for displaying image data, but this is discussed in the context of scientific data visualization rather than PDF file processing.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 5,
+      "category": "Embeddings & Vector Database",
+      "question": "Which sentence transformer model is loaded for generating embeddings?",
+      "expected": "all-MiniLM-L6-v2.",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 6,
+      "category": "Embeddings & Vector Database",
+      "question": "Why was ChromaDB chosen as the vector database?",
+      "expected": "Runs locally without external infrastructure and has fast HNSW-based indexing.",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 7,
+      "category": "Embeddings & Vector Database",
+      "question": "What embedding models does the project specification list as acceptable?",
+      "expected": "OpenAI, Voyage, or open-source models (BGE, E5, Nomic).",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 8,
+      "category": "Embeddings & Vector Database",
+      "question": "What metadata fields are stored with each chunk in ChromaDB?",
+      "expected": "document_name, document_type, chunk, page, upload_time.",
+      "generated": "I could not find this information in the uploaded document(s). The provided text focuses on meteorological data formats (HDF, NetCDF, GRIB, and CSV) and Python database interaction using SQLite, but it does not contain information regarding ChromaDB.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 9,
+      "category": "Retrieval & Hybrid Search",
+      "question": "What is the benefit of using BM25 alongside dense vector search?",
+      "expected": "BM25 handles exact keyword matching while vector search handles semantic concepts.",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 10,
+      "category": "Retrieval & Hybrid Search",
+      "question": "How are scores from dense and sparse search merged in hybrid search?",
+      "expected": "Using Reciprocal Rank Fusion (RRF).",
+      "generated": "I could not find this information in the uploaded document(s). The provided text covers topics such as Python programming fundamentals, data manipulation with Pandas, basic database interaction with SQLite, data cleaning techniques, and fundamental machine learning evaluation metrics, but it does not contain information regarding hybrid search or the merging of scores from dense and sparse search.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 11,
+      "category": "Retrieval & Hybrid Search",
+      "question": "What value of k is used in the RRF scoring formula?",
+      "expected": "k = 60.",
+      "generated": "I could not find this information in the uploaded document(s). \n\nWhile the provided documents contain information regarding mathematical distance formulas (such as Manhattan and Euclidean distance) and various data formats and programming concepts, they do not mention or define the **RRF (Reciprocal Rank Fusion)** scoring formula or its associated parameters.",
+      "scores": {
+        "correctness": 5,
+        "citation_precision": 4,
+        "completeness": 5,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 12,
+      "category": "Retrieval & Hybrid Search",
+      "question": "How many candidates are retrieved from dense and BM25 search before fusion?",
+      "expected": "Top candidates (20-30) from each list.",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 13,
+      "category": "Generation & Fallback Logic",
+      "question": "What models are defined in the LLM fallback chain?",
+      "expected": "Primary Gemini model -> Gemini 1.5 Flash -> Mock Offline fallback.",
+      "generated": "I could not find this information in the uploaded document(s). The provided text focuses on machine learning applications in meteorology, specifically covering regression, supervised learning algorithms, and climate modeling, but it does not contain information regarding an \"LLM fallback chain.\"",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 14,
+      "category": "Generation & Fallback Logic",
+      "question": "How does the system handle HTTP 429 errors from the primary model?",
+      "expected": "It immediately cascades to the next model in the fallback chain.",
+      "generated": "I could not find this information in the uploaded document(s). The provided text focuses on Python's **try-except** error handling mechanism for standard runtime exceptions (such as `ZeroDivisionError`), but it does not contain specific details regarding HTTP 429 status codes or API rate-limiting strategies.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 15,
+      "category": "Generation & Fallback Logic",
+      "question": "What models are recommended in the placement specification for LLM Generation?",
+      "expected": "GPT-4o-mini, Claude Haiku, or open-source (Qwen, Llama).",
+      "generated": "I could not find this information in the uploaded document(s). \n\nThe provided context covers topics such as an **Introduction to Python**, **Machine Learning Algorithms** (specifically **Supervised Learning** and **Regression**), and **Applications of AI & ML in Meteorology** (such as weather forecasting and climate modeling), but it does not contain information regarding **Large Language Models (LLMs)** or recommended models for **LLM Generation**.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 16,
+      "category": "Generation & Fallback Logic",
+      "question": "How does the system behave when a 503 Service Unavailable error occurs?",
+      "expected": "It retries the same model up to 3 times with a 5-second delay before falling back.",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 17,
+      "category": "Multi-Document Comparison",
+      "question": "How does the document comparison feature work?",
+      "expected": "Retrieves text of multiple documents and formats them into a comparison prompt.",
+      "generated": "I could not find this information in the uploaded document(s). \n\nThe provided context contains technical notes on **Python programming** (such as conditional statements, operators, loops, and file handling) and **Machine Learning** concepts (such as feature engineering, extraction, selection, and data splitting). It does not contain documentation or explanations regarding a \"document comparison\" feature.",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 4,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 18,
+      "category": "Multi-Document Comparison",
+      "question": "What are the comparison modes available for compare feature?",
+      "expected": "summary, similarities, detailed, custom.",
+      "generated": "### [AI] [MOCK LLM FALLBACK ACTIVE]\n\n**Note:** All Gemini API models are currently exhausted or the API key is invalid/missing. Below is the relevant information retrieved from your uploaded documents matching your question:\n\n1. --- Source: pyy and AI.pdf | Page 20 ---\nLecture Notes\nWeb Designing & AI\nAdvance Training Course in MI & IS, Batch XIV\n20\n\uf0b2\nComparison operators:\n\uf06e\n==: Equal to\n\uf06e\n!=: Not equal to\n\uf06e\n>: Greater than\n\uf06e\n<: Less than\n\uf06e\n>=: Greater than or equal to\n\uf06e\n<=: Less than or equal to\n\uf0b2\nLogical operators:\n\uf06e\nand: Returns True if both conditions are true. \uf06e\nor: Returns True if at least one condition is true. \uf06e\nnot: Reverses the result of a condition. Example:\nx = 5\ny = 10\nif x < y and x != 0:\nprint(\"x is less than y and not zero.\")\n1.3.8.3 LOOPS (FOR AND WHILE)\nLoops are used to repeat a block of code multiple times. \uf0b2\nfor Loop: Iterates over a sequence (like a list, string, or range of\nnumbers).\n\n2. --- Source: pyy and AI.pdf | Page 52 ---\nfrom sklearn.preprocessing import StandardScaler\nscaler = StandardScaler()\nstandardized_data = scaler.fit_transform(data)\nFEATURE EXTRACTION AND SELECTION:\n\uf0b2\nFeature Extraction: Create new features from existing data (e.g.,\nextracting month and year from a date). \uf0b2\nFeature Selection: Identify and retain the most relevant features\nfor the model. \uf0b2\nExample:\n\uf06e\nFeature Extraction: From a dataset with temperature and\nhumidity, create a new feature for \u201ctemperature anomaly\u201d\n(difference from average temperature). 3.2.3 SPLITTING DATA FOR TRAINING AND TESTING\nTRAIN-TEST SPLIT:\n\uf0b2\nObjective: Divide the dataset into training and testing subsets to\nevaluate the model\u2019s performance on unseen data.\n\n3. --- Source: pyy and AI.pdf | Page 19 ---\nelse Statement: Executes if the if condition is False. elif (else if): Allows for multiple conditions to be checked in sequence. grade = 85\nif grade >= 90:\nprint(\"You got an A!\")\nelif grade >= 80:\nprint(\"You got a B!\")\nelse:\nprint(\"You got a lower grade.\")\n1.3.8.2 Comparison and Logical Operators\nThese operators help in making comparisons and combining conditions.\n\n",
+      "scores": {
+        "correctness": 3,
+        "citation_precision": 5,
+        "completeness": 3,
+        "is_refusal": false
+      }
+    },
+    {
+      "id": 19,
+      "category": "Guardrails & Refusals",
+      "question": "What is the capital of France?",
+      "expected": "I could not find this information in the uploaded document(s).",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 5,
+        "citation_precision": 5,
+        "completeness": 5,
+        "is_refusal": true
+      }
+    },
+    {
+      "id": 20,
+      "category": "Guardrails & Refusals",
+      "question": "Explain quantum computing superposition.",
+      "expected": "I could not find this information in the uploaded document(s).",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 5,
+        "citation_precision": 5,
+        "completeness": 5,
+        "is_refusal": true
+      }
+    },
+    {
+      "id": 21,
+      "category": "Guardrails & Refusals",
+      "question": "How do you cook spaghetti carbonara?",
+      "expected": "I could not find this information in the uploaded document(s).",
+      "generated": "I could not find this information in the uploaded document(s).",
+      "scores": {
+        "correctness": 5,
+        "citation_precision": 5,
+        "completeness": 5,
+        "is_refusal": true
+      }
+    },
+    {
+      "id": 22,
+      "category": "Guardrails & Refusals",
+      "question": "What is the weather in Tokyo right now?",
+      "expected": "I could not find this information in the uploaded document(s).",
+      "generated": "I could not find this information in the uploaded document(s). \n\nThe provided documentation focuses on **methodologies, exercises, and theoretical applications** of AI and Machine Learning in meteorology, such as **weather forecasting, climate modeling, and data extraction techniques**, rather than providing real-time weather reports for specific geographic locations.",
+      "scores": {
+        "correctness": 5,
+        "citation_precision": 5,
+        "completeness": 5,
+        "is_refusal": true
+      }
+    }
+  ]
+}

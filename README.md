@@ -1,479 +1,243 @@
 # 🚀 IntelliDocs-AI
 
-> **An AI-powered Retrieval-Augmented Generation (RAG) based Document Question Answering System that enables users to upload PDF documents, retrieve semantically relevant information using vector search, and generate context-aware answers with Google Gemini.**
+> **An AI-powered Retrieval-Augmented Generation (RAG) platform enabling semantic search, multi-provider LLM answer synthesis, inline citations, and multi-document comparative analysis over PDF corpora.**
 
 <p align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
-![Streamlit](https://img.shields.io/badge/UI-Streamlit-red?logo=streamlit)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?logo=fastapi)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit)
+![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react)
 ![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)
 ![Sentence Transformers](https://img.shields.io/badge/Embeddings-SentenceTransformers-success)
-![ChromaDB](https://img.shields.io/badge/Vector%20Database-ChromaDB-green)
-![Gemini](https://img.shields.io/badge/LLM-Google%20Gemini-blueviolet)
-![Pytest](https://img.shields.io/badge/Testing-Pytest-yellow)
-![GitHub](https://img.shields.io/badge/Version%20Control-Git%20%26%20GitHub-black)
-![Status](https://img.shields.io/badge/Status-Week%203%20Completed-brightgreen)
+![ChromaDB](https://img.shields.io/badge/Vector%20DB-ChromaDB-green)
+![Gemini](https://img.shields.io/badge/LLM-Google%20Gemini-4285F4?logo=google)
+![Pytest](https://img.shields.io/badge/Testing-Pytest%20(10%20Passed)-yellow?logo=pytest)
+![Status](https://img.shields.io/badge/Status-Milestone%20Complete-brightgreen)
 
 </p>
 
 ---
 
-## 🌟 Key Highlights
+## 🎥 1. Project Demo
 
-- 📄 Upload PDF documents
-- ✂️ Automatic document chunking
-- 🧠 Semantic embeddings using Sentence Transformers
-- 🗂️ ChromaDB Vector Database
-- 🔍 Semantic Search
-- 🤖 Gemini-powered AI Answers
-- 📚 Retrieval-Augmented Generation (RAG)
-- 📌 Source Citation
-- 🧪 Unit Testing using Pytest
-- 💻 Streamlit Web Interface
- 
----
-
-# 📌 Project Information
-
-| Item | Details |
-|------|---------|
-| **Project Name** | IntelliDocs-AI |
-| **Problem Statement Code** | **I2 – Document Q&A (RAG over a Focused Corpus)** |
-| **Segment** | Foundations of Applied Machine Learning |
-| **Student Name** | Rajeev Kumar |
-| **Internship** | Summer Internship 2026 |
+- **Demo Video (Google Drive):** [Watch Product Demo Video](https://drive.google.com/file/d/1M6AxdbiT9fYv4QrJI_NGNFW7MyIIgBlA/view?usp=sharing)
+- **Live Local REST API:** `http://localhost:8000` (FastAPI Server)
+- **Live Local Streamlit UI:** `http://localhost:8501` (Streamlit App)
+- **Live Local React UI:** `http://localhost:5173` (Vite + React SPA)
 
 ---
 
-# 🎥 Project Demonstration
+## 📌 2. Problem Statement
 
-## 📹 Demo Video
+Reading and locating specific information inside long PDF documents (e.g., technical specifications, legal contracts, research papers) is time-consuming and inefficient. Traditional keyword searches fail when user queries use different phrasing or conceptual terminology than the source document.
 
-**Google Drive Demo**
-
-https://drive.google.com/file/d/1M6AxdbiT9fYv4QrJI_NGNFW7MyIIgBlA/view?usp=sharing
-
-### Demonstrated Features
-
-- PDF Upload
-- PDF Text Extraction
-- Intelligent Chunking
-- Semantic Embedding Generation
-- ChromaDB Vector Search
-- Gemini AI Answer Generation
-- Source Citation
-- Streamlit Interface
+**IntelliDocs-AI** solves this by implementing an end-to-end Retrieval-Augmented Generation (RAG) pipeline. It extracts text and structural elements (markdown tables and image placeholders) from PDF files using PyMuPDF, splits the text into 500-character semantic chunks with 50-character overlap, generates 384-dimensional dense vectors using Sentence Transformers (`all-MiniLM-L6-v2`), indexes them in ChromaDB alongside an in-memory BM25 sparse index, and combines search results via Reciprocal Rank Fusion (RRF $k=60$). Retrieved chunks are passed as context to Google Gemini to synthesize grounded answers backed by chunk-level source citations.
 
 ---
 
-# 📖 Project Overview
+## 🏗️ 3. Architecture Diagram
 
-IntelliDocs-AI is an AI-powered document intelligence application developed as part of the **Summer Internship 2026** under the **Foundations of Applied Machine Learning** segment. The project is based on the problem statement **"I2 – Document Q&A (RAG over a Focused Corpus)"** and aims to simplify document understanding through Retrieval-Augmented Generation (RAG).
+```mermaid
+flowchart TD
+    subgraph Client ["Client Layer"]
+        StreamlitUI["Streamlit UI (scripts/app.py)"]
+        ReactUI["React Frontend (frontend/)"]
+    end
 
-The application enables users to upload PDF documents, automatically extract their contents, split the extracted text into meaningful chunks, generate semantic embeddings using **Sentence Transformers**, and store those embeddings in **ChromaDB**, enabling efficient semantic retrieval.
+    subgraph API ["REST API Layer"]
+        FastAPIApp["FastAPI Server (scripts/api.py)"]
+    end
 
-When a user asks a question, the system performs **semantic search** to retrieve the most relevant document chunks rather than relying solely on keyword matching. These retrieved chunks are then provided as context to **Google Gemini**, allowing the model to generate accurate, context-aware responses while reducing hallucinations.
+    subgraph Ingestion ["PDF Ingestion & Processing"]
+        PyMuPDFParser["PyMuPDF (fitz) Extractor"]
+        TableImageProc["Markdown Table Finder & Image Marker"]
+        Chunker["Recursive Text Chunker (500 chars / 50 overlap)"]
+        PyMuPDFParser --> TableImageProc --> Chunker
+    end
 
-To improve transparency and trustworthiness, the application also displays the **source document** and **chunk number** associated with the retrieved information, allowing users to verify where the generated answer originated.
+    subgraph Storage ["Hybrid Indexing Layer"]
+        DenseEmbed["Sentence Transformers (all-MiniLM-L6-v2)"]
+        ChromaDBStore[("ChromaDB Vector Store (Persistent HNSW)")]
+        BM25Index["Rank-BM25 Sparse Index"]
+        Chunker --> DenseEmbed --> ChromaDBStore
+        Chunker --> BM25Index
+    end
 
-The project demonstrates the complete workflow of a modern **Retrieval-Augmented Generation (RAG)** system—from **PDF ingestion**, **intelligent text chunking**, **embedding generation**, **vector storage**, **semantic retrieval**, and **AI-powered question answering**—through an interactive **Streamlit** web application.
+    subgraph Search ["Hybrid Search Engine (scripts/search.py)"]
+        UserQuery["User Query"]
+        DenseSearch["Dense Vector Cosine Similarity"]
+        SparseSearch["BM25 Keyword Search"]
+        RRFEngine["Reciprocal Rank Fusion (RRF k=60)"]
+        
+        UserQuery --> DenseSearch
+        UserQuery --> SparseSearch
+        ChromaDBStore --> DenseSearch
+        BM25Index --> SparseSearch
+        DenseSearch --> RRFEngine
+        SparseSearch --> RRFEngine
+    end
 
-Finally, this project provides a strong foundation for building scalable enterprise document intelligence systems. Future enhancements include **multi-document retrieval**, **hybrid search**, **conversation history**, **authentication**, and **cloud deployment**.
+    subgraph LLM ["Generation & Fallback Engine (scripts/llm.py)"]
+        RRFEngine --> GroundedContext["Top-k Grounded Context Chunks"]
+        GroundedContext --> FallbackCascade{"Multi-Provider Fallback Cascade"}
+        FallbackCascade -->|Primary| Gem2Flash["Gemini 2.0 Flash"]
+        FallbackCascade -->|HTTP 429 Quota| Gem15Flash["Gemini 1.5 Flash / Lite"]
+        FallbackCascade -->|Offline / Key Miss| OfflineMock["Local Mock Context Extractor"]
+    end
 
----
+    subgraph Output ["Answer Output"]
+        Gem2Flash --> FinalAns["Grounded Answer + Page & Chunk Citations"]
+        Gem15Flash --> FinalAns
+        OfflineMock --> FinalAns
+    end
 
-# 🎯 Project Objectives
-
-The primary objectives of IntelliDocs-AI are:
-
-- 📄 Extract text from PDF documents efficiently.
-- ✂️ Split large documents into meaningful semantic chunks.
-- 🧠 Generate high-quality vector embeddings using Sentence Transformers.
-- 🗂️ Store document embeddings in ChromaDB.
-- 🔍 Retrieve the most relevant document chunks using semantic search.
-- 🤖 Generate accurate answers using Google Gemini.
-- 📚 Implement a complete Retrieval-Augmented Generation (RAG) pipeline.
-- 📌 Display source citations for retrieved information.
-- 💻 Provide an interactive Streamlit-based user interface.
-- 🧪 Ensure reliability through unit testing.
----
-
-# 📅 Internship Deliverables
-
-## ✅ Week 1 – Foundation
-
-- Repository Created
-- Public GitHub Repository
-- README Documentation
-- Initial Design Document
-- Technology Stack Documentation
-- PDF Text Extraction using PyMuPDF
-- Initial Project Structure
-- Git Version Control
-- Data Layer Validation
-- 5+ Git Commits
-
----
-
-## ✅ Week 2 – End-to-End Pipeline
-
-- Document Chunking
-- Sentence Transformer Embeddings
-- ChromaDB Integration
-- Semantic Search
-- Streamlit User Interface
-- End-to-End Working Demo
-- ADR-001
-- 10+ Git Commits
-
----
-
-## ✅ Week 3 – Mini Extension
-
-- Google Gemini Integration
-- Retrieval-Augmented Generation (RAG)
-- Dynamic PDF Upload
-- Source Citation
-- Pytest Unit Testing
-- README Enhancement
-- Mini Extension Demo
-- 15+ Git Commits
-- ADR-002
-- ADR-003
----
-
-# ✨ Current Features
-
-### 📄 Document Processing
-
-- PDF Upload
-- PDF Text Extraction
-- Intelligent Chunking
-
-### 🧠 Artificial Intelligence
-
-- Sentence Transformer Embeddings
-- Semantic Similarity Search
-- Google Gemini Integration
-- Retrieval-Augmented Generation (RAG)
-
-### 🗂 Vector Database
-
-- ChromaDB Storage
-- Fast Vector Retrieval
-- Metadata Storage
-- Source Citation
-
-### 💻 User Interface
-
-- Streamlit Application
-- Interactive PDF Upload
-- AI Answer Generation
-- Retrieved Context Display
-
-### 🧪 Software Engineering
-
-- Modular Code Structure
-- Unit Testing using Pytest
-- Git Version Control
-- Environment Variable Support
-
----
-# 🏗 System Architecture
-
-```text
-                        📄 PDF Upload
-                              │
-                              ▼
-                 ┌─────────────────────────┐
-                 │   PDF Text Extraction   │
-                 │       (PyMuPDF)         │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │   Intelligent Chunking  │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │ Sentence Transformers   │
-                 │   Embedding Generation  │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │ ChromaDB Vector Store   │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │ Semantic Retrieval      │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │ Google Gemini API       │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │ AI Generated Answer     │
-                 │ + Source Citation       │
-                 └─────────────────────────┘
+    StreamlitUI --> FastAPIApp
+    ReactUI --> FastAPIApp
+    FastAPIApp --> Ingestion
+    FastAPIApp --> Search
+    Search --> LLM
+    Output --> FastAPIApp
 ```
 
 ---
 
-# 📂 Project Structure
+## 🛠️ 4. Technology Stack
 
-```text
-IntelliDocs-AI
-│
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── uploads/
-│
-├── docs/
-│   ├── adr/
-│   │   ├── ADR-001-vector-store.md
-│   │   ├── ADR-002-gemini-integration.md
-│   │   └── ADR-003-source-citation.md
-│   │
-│   ├── design_doc.md
-│   └── tech_stack.md
-│
-├── scripts/
-│   ├── app.py
-│   ├── chunker.py
-│   ├── embeddings.py
-│   ├── llm.py
-│   ├── pdf_processor.py
-│   ├── search.py
-│   ├── vector_store.py
-│   └── __init__.py
-│
-├── tests/
-│   └── test_chunker.py
-│
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
+| Component Layer | Tool / Technology | Version / Specification | Rationale & Usage |
+|-----------------|-------------------|-------------------------|-------------------|
+| **Core Runtime** | Python | 3.12 | Primary backend language for NLP and API server |
+| **PDF Extraction** | PyMuPDF (`fitz`) | 1.23+ | Fast C-extension parsing, structured markdown tables (`find_tables()`), image markers |
+| **Text Segmentation** | Custom Recursive Chunker | 500 chars / 50 overlap | Retains cohesive paragraph context while preventing semantic dilution |
+| **Dense Embeddings** | Sentence Transformers | `all-MiniLM-L6-v2` | 384-dimensional dense vectors with fast CPU inference |
+| **Vector DB** | ChromaDB | 0.4+ | Local persistent HNSW vector store with metadata filtering |
+| **Sparse Index** | Rank-BM25 | 0.2+ | Okapi BM25 algorithm for exact keyword matching |
+| **Rank Fusion** | Reciprocal Rank Fusion | RRF ($k=60$) | Fuses dense and sparse rankings into a unified score |
+| **Primary LLM** | Google Gemini API | `gemini-2.0-flash` | Context-aware answer synthesis via `google-genai` SDK |
+| **Fallback LLM Tier** | Google Gemini Tier 2 | `gemini-1.5-flash` | Cascades automatically on HTTP 429 rate limits |
+| **Offline Fallback** | Local Mock Extractor | Built-in | Graceful offline context extraction when APIs are down |
+| **Backend API** | FastAPI + Uvicorn | 0.109+ | Async REST API (`/upload`, `/query`, `/compare`, `/collections`, `/status`) |
+| **Web Interface 1** | Streamlit | 1.30+ | Python interactive web app (`scripts/app.py`) |
+| **Web Interface 2** | React + Vite | React 18 / Vite 5 | Single Page Application (SPA) in `frontend/` |
+| **Testing** | Pytest | 9.1+ | Automated test suite across 8 modules (10/10 passed) |
 
 ---
 
-# 🛠 Technology Stack
+## ⚙️ 5. Quickstart Guide
 
-| Layer | Technology |
-|--------|------------|
-| Programming Language | Python 3.12 |
-| PDF Processing | PyMuPDF |
-| Text Chunking | LangChain-style Chunking |
-| Embedding Model | Sentence Transformers (`all-MiniLM-L6-v2`) |
-| Vector Database | ChromaDB |
-| Similarity Search | Cosine Similarity |
-| Large Language Model | Google Gemini |
-| Frontend | Streamlit |
-| Environment Variables | python-dotenv |
-| Testing | Pytest |
-| Version Control | Git & GitHub |
+### Prerequisites
+- Python 3.10+ (Python 3.12 recommended)
+- Node.js 18+ (optional, for React frontend)
 
----
-
-# ⚙️ Quick Start
-
-## 1️⃣ Clone the Repository
-
+### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/rajeevkrsingh17/IntelliDocs-AI.git
 cd IntelliDocs-AI
 ```
 
-## 2️⃣ Install Dependencies
-
+### Step 2: Set Up Virtual Environment & Dependencies
 ```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# Linux / macOS:
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## 3️⃣ Configure Environment Variables
-
-Create a `.env` file inside the `scripts` folder.
-
-```text
-GEMINI_API_KEY=YOUR_API_KEY
+### Step 3: Configure Environment Variables
+Create a `.env` file in the `scripts/` directory:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.0-flash
 ```
 
-## 4️⃣ Run the Application
+### Step 4: Run the Application
 
+#### Option A: Launch Streamlit Web UI (Direct Python Application)
 ```bash
 python -m streamlit run scripts/app.py
 ```
+*Open browser at `http://localhost:8501`*
 
----
+#### Option B: Launch FastAPI REST Server & React Frontend
+```bash
+# Terminal 1: Run FastAPI backend
+python -m uvicorn scripts.api:app --reload --port 8000
 
-# 🧪 Run Unit Tests
+# Terminal 2: Run React frontend
+cd frontend
+npm install
+npm run dev
+```
+*Access React UI at `http://localhost:5173` and Swagger docs at `http://localhost:8000/docs`*
 
+### Step 5: Run Automated Tests
 ```bash
 pytest
 ```
-
-Expected Output
-
-```text
-=============================
-1 passed
-=============================
-```
+*Output: 10 passed test cases across 8 test suites.*
 
 ---
 
-# 📊 Project Progress
+## 📊 6. Data Sources & Corpus
 
-| Feature | Status |
-|----------|--------|
-| Repository Setup | ✅ |
-| README Documentation | ✅ |
-| Design Document | ✅ |
-| Tech Stack Documentation | ✅ |
-| PDF Upload | ✅ |
-| PDF Text Extraction | ✅ |
-| Intelligent Chunking | ✅ |
-| Sentence Transformer Embeddings | ✅ |
-| ChromaDB Integration | ✅ |
-| Semantic Search | ✅ |
-| Google Gemini Integration | ✅ |
-| Retrieval-Augmented Generation (RAG) | ✅ |
-| Source Citation | ✅ |
-| Streamlit Interface | ✅ |
-| Unit Testing | ✅ |
-| End-to-End Working Demo | ✅ |
+IntelliDocs-AI operates over PDF document corpora uploaded dynamically by users or placed in `data/raw/` and `data/uploads/`.
+- Supported input format: `.pdf` (with readable text, tables, and images).
+- Metadata attached to every indexed chunk: `document_name`, `document_type`, `chunk` (sequential index), `page` (calculated page number), `upload_time`.
 
 ---
 
-# 📚 What I Learned
+## 📑 7. Architectural Decision Records (ADRs)
 
-## Week 1
+All core architecture decisions are documented in [`docs/adr/`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/):
 
-- Built a structured AI project repository.
-- Learned PDF text extraction using PyMuPDF.
-- Understood Git version control and project organization.
-- Learned the fundamentals of Retrieval-Augmented Generation (RAG).
-
----
-
-## Week 2
-
-- Learned document chunking strategies.
-- Generated semantic embeddings using Sentence Transformers.
-- Stored vectors in ChromaDB.
-- Implemented semantic similarity search.
-- Built an end-to-end retrieval pipeline.
-- Developed a Streamlit web interface.
+- [`ADR-001: Selection of ChromaDB as Vector Database`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-001-vector-store.md)
+- [`ADR-002: Google Gemini as Primary LLM Provider`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-002-gemini-integration.md)
+- [`ADR-003: Source Citation Engine for Answer Transparency`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-003-source-citation.md)
+- [`ADR-004: Resilient LLM Fallback Cascade Engine`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-004-model-fallback.md)
 
 ---
 
-## Week 3
+## ✨ 8. Mini-Extension Details
 
-- Integrated Google Gemini API for AI-powered answers.
-- Implemented a complete Retrieval-Augmented Generation (RAG) pipeline.
-- Added source citations for retrieved document chunks.
-- Wrote unit tests using Pytest.
-- Improved project documentation and repository structure.
-- Learned prompt engineering and context-based answer generation.
+IntelliDocs-AI includes two major mini-extensions that go beyond standard single-file RAG tutorials:
 
----
+1. **Multi-Document Comparative Analysis Engine:**
+   - Allows users to select multiple uploaded PDFs and generate comparative reports.
+   - Provides 4 comparison modes: `summary`, `similarities`, `detailed`, and `custom`.
 
-# 💡 What Surprised Me
-
-One of the biggest learnings was discovering how much answer quality depends on retrieval quality. Better chunking and relevant document retrieval significantly improve the accuracy of the Gemini-generated response while reducing hallucinations.
+2. **Resilient LLM Fallback Cascade:**
+   - Detects HTTP 429 quota limits and instantly cascades across model tiers (`gemini-2.0-flash` → `gemini-1.5-flash` → `mock`).
+   - Differentiates 429 quota errors (cascade immediately) from 503 service errors (retry 3 times with 5s delay).
 
 ---
 
-# 🔄 What I'd Do Differently
+## ⚠️ 9. Known Limitations
 
-If I started this project again, I would first design the complete project architecture before writing code. I would also implement automated testing earlier and support multiple PDF documents from the beginning to make the system more scalable.
-
----
-
-# 🚀 Future Roadmap
-
-## ✅ Completed
-
-- PDF Upload
-- PDF Text Extraction
-- Intelligent Chunking
-- Sentence Transformer Embeddings
-- ChromaDB Vector Store
-- Semantic Search
-- Google Gemini Integration
-- Retrieval-Augmented Generation
-- Source Citation
-- Streamlit Interface
-- Unit Testing
+- **Scanned Image-Only PDFs:** Pure scanned image PDFs without an embedded OCR text layer require pre-OCR processing (planned for 3rd-year extension).
+- **Large File Processing Latency:** Parsing and generating dense embeddings for 200+ page PDFs takes 15–30 seconds on local CPU hardware.
 
 ---
 
-## 🚧 In Progress
+## 🗺️ 10. What I'd Do in 3rd Year
 
-- Improve Retrieval Accuracy
-- Better UI/UX
-- Performance Optimization
-
----
-
-## 🔜 Planned
-
-- Multi-document Support
-- Chat History
-- Hybrid Search (Keyword + Vector)
-- Cloud Deployment
-- Docker Support
-- Authentication
-- Conversation Memory
+See the complete 12-month roadmap in [`docs/roadmap_3rd_year_final.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/roadmap_3rd_year_final.md):
+- Hybrid search optimization with Qdrant and pgvector.
+- Multi-format document ingestion (DOCX, PPTX, HTML, Markdown).
+- Agentic RAG workflows (query decomposition and self-verification using LangGraph).
+- Containerized cloud deployment with Docker Compose, GitHub Actions CI/CD, and Prometheus metrics.
 
 ---
 
-# 🤝 Contributing
+## 📄 11. License & Acknowledgements
 
-Contributions, issues, and feature requests are welcome. Feel free to fork this repository and submit a pull request.
-
----
-
-# 📹 Project Demo
-
-🎥 **Watch the complete Week 3 Demo**
-
-https://drive.google.com/file/d/1M6AxdbiT9fYv4QrJI_NGNFW7MyIIgBlA/view?usp=drive_link
-
----
-
-# 🔗 GitHub Repository
-
-**Repository:**  
-https://github.com/rajeevkrsingh17/IntelliDocs-AI
-
----
-
-# 👨‍💻 Developer
-
-**Rajeev Kumar**
-
-🎓 B.Tech CSE (Artificial Intelligence & Data Engineering)
-
-🏫 Lovely Professional University
-
-💼 Summer Internship 2026
-
-🤖 Segment: Foundations of Applied Machine Learning
-
-📌 Problem Statement: **I2 – Document Q&A (RAG over a Focused Corpus)**
-
----
-
-# ⭐ Support
-
-If you found this project useful, please ⭐ star the repository.
-
-It motivates me to continue improving the project!
+- **License:** MIT License
+- **Developer:** Rajeev Kumar (B.Tech CSE - AI & Data Engineering, Lovely Professional University)
+- **Segment:** Foundations of Applied Machine Learning (Summer Internship 2026)
+- **Problem Statement Code:** `I2 – Document Q&A (RAG over a Focused Corpus)`

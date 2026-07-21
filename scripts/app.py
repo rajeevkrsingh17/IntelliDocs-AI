@@ -1,4 +1,10 @@
+import sys
 from pathlib import Path
+
+# Add scripts directory to sys.path for seamless imports locally & on Streamlit Cloud
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
 import chromadb
 import streamlit as st
@@ -115,25 +121,21 @@ if st.button("Generate Answer"):
         st.stop()
 
     with st.spinner("Searching documents..."):
+        from search import retrieve_relevant_chunks
 
-        query_embedding = model.encode([query]).tolist()
-
-        results = collection.query(
-            query_embeddings=query_embedding,
-            n_results=12,
-            include=["documents", "metadatas"],
-        )
-
-        documents = results["documents"][0]
-        metadatas = results["metadatas"][0]
-  
+        retrieved = retrieve_relevant_chunks(query, n_results=8)
+        documents = retrieved["documents"]
+        metadatas = retrieved["metadata"]
 
         context = ""
-
         for doc, meta in zip(documents, metadatas):
+            doc_name = meta.get("document_name", meta.get("source", "Unknown"))
+            page_num = meta.get("page", "N/A")
+            chunk_num = meta.get("chunk", "N/A")
             context += (
-                f"Document: {meta['source']}\n"
-                f"Chunk: {meta['chunk']}\n"
+                f"Document: {doc_name}\n"
+                f"Page: {page_num}\n"
+                f"Chunk: {chunk_num}\n"
                 f"Content:\n{doc}\n\n"
             )
 
@@ -154,7 +156,10 @@ if st.button("Generate Answer"):
     st.subheader("📄 Retrieved Context")
 
     for doc, meta in zip(documents, metadatas):
-        with st.expander(f"📄 {meta['source']} | Chunk {meta['chunk']}"):
+        doc_name = meta.get("document_name", meta.get("source", "Unknown"))
+        page_num = meta.get("page", "N/A")
+        chunk_num = meta.get("chunk", "N/A")
+        with st.expander(f"📄 {doc_name} | Page {page_num} | Chunk {chunk_num}"):
             st.write(doc)
 
  

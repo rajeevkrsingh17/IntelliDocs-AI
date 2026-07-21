@@ -1,45 +1,37 @@
-import shutil
 from pathlib import Path
 
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-from chunker import extract_text_from_pdf, chunk_text
-
+from chunker import extract_text, chunk_text
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-UPLOAD_FOLDER = BASE_DIR / "data" / "uploads"
 DB_PATH = BASE_DIR / "data" / "processed" / "chroma_db"
 
 MODEL_NAME = "all-MiniLM-L6-v2"
 
 
-def process_pdf(uploaded_pdf_path):
+def process_pdf(pdf_path):
     """
-    Process uploaded PDF:
+    Process an uploaded PDF:
     1. Extract text
     2. Chunk text
     3. Generate embeddings
-    4. Store into ChromaDB
+    4. Store in ChromaDB
     """
 
-    print("Loading embedding model...")
     model = SentenceTransformer(MODEL_NAME)
 
-    print("Extracting text...")
-    text = extract_text_from_pdf(uploaded_pdf_path)
+    text = extract_text(pdf_path)
 
-    print("Chunking document...")
     chunks = chunk_text(text)
 
-    print("Generating embeddings...")
     embeddings = model.encode(chunks).tolist()
 
-    print("Connecting to ChromaDB...")
     client = chromadb.PersistentClient(path=str(DB_PATH))
 
-    # Delete old collection
+    # Delete previous collection
     try:
         client.delete_collection("intellidocs")
     except Exception:
@@ -47,14 +39,10 @@ def process_pdf(uploaded_pdf_path):
 
     collection = client.create_collection("intellidocs")
 
-    print("Saving embeddings...")
-
     collection.add(
+        ids=[f"chunk_{i}" for i in range(len(chunks))],
         documents=chunks,
         embeddings=embeddings,
-        ids=[f"chunk_{i}" for i in range(len(chunks))]
     )
-
-    print("Done!")
 
     return len(chunks)
