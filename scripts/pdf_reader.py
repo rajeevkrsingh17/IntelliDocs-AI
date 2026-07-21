@@ -1,60 +1,53 @@
-import fitz  # PyMuPDF
+import fitz
 from pathlib import Path
 
-# -----------------------------
-# Locate the PDF file
-# -----------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
-pdf_path = BASE_DIR / "data" / "raw" / "sample_document.pdf"
 
-# -----------------------------
-# Check if the PDF exists
-# -----------------------------
-if not pdf_path.exists():
-    print(f"Error: PDF file not found at:\n{pdf_path}")
-    exit()
+def extract_pdf_text(file_path):
+    """
+    Extract text from a PDF.
 
-try:
-    # -----------------------------
-    # Open the PDF
-    # -----------------------------
-    doc = fitz.open(pdf_path)
+    Returns:
+        list[dict]
 
-    print("=" * 50)
-    print("IntelliDocs-AI - PDF Reader")
-    print("=" * 50)
-    print(f"Loaded PDF : {pdf_path.name}")
-    print(f"Total Pages: {len(doc)}")
+        Example:
+        [
+            {
+                "page": 1,
+                "text": "Page 1 text..."
+            },
+            {
+                "page": 2,
+                "text": "Page 2 text..."
+            }
+        ]
+    """
 
-    # -----------------------------
-    # Extract text
-    # -----------------------------
-    text = ""
+    file_path = Path(file_path)
 
-    for page in doc:
-        try:
-            text += page.get_text()
-        except Exception:
-            # Skip problematic pages without stopping the program
-            continue
+    if not file_path.exists():
+        raise FileNotFoundError(f"PDF not found: {file_path}")
 
-    print(f"Characters Extracted: {len(text)}")
+    document = fitz.open(file_path)
 
-    # -----------------------------
-    # Simple Query
-    # -----------------------------
-    query = "combination"
+    pages = []
 
-    print("\nSearching document...")
+    try:
 
-    if query.lower() in text.lower():
-        print(f"Result: '{query}' found in the document.")
-    else:
-        print(f"Result: '{query}' not found in the document.")
+        for page_number, page in enumerate(document, start=1):
 
-    doc.close()
+            text = page.get_text("text").strip()
 
-    print("\nPDF processing completed successfully.")
+            if not text:
+                continue
 
-except Exception as e:
-    print(f"\nError while reading PDF:\n{e}")
+            pages.append(
+                {
+                    "page": page_number,
+                    "text": text,
+                }
+            )
+
+    finally:
+        document.close()
+
+    return pages
