@@ -45,18 +45,26 @@ app = FastAPI(
     version="2.3.0",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "*",  # Allow all origins (covers Vercel preview deployments)
-        "https://intellidocs-ai-tau.vercel.app",
-        "https://intellidocs-ai.vercel.app",
-    ],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["Content-Type"],
-)
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    # Handle preflight OPTIONS requests directly
+    if request.method == "OPTIONS":
+        response = JSONResponse(status_code=200, content={})
+    else:
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            # Fallback in case exception handler doesn't catch it
+            response = JSONResponse(status_code=500, content={"detail": str(exc)})
+        
+    origin = request.headers.get("Origin") or request.headers.get("origin") or "*"
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "86400"  # Cache preflight for 24 hours
+    return response
+
 
 
 # Catch-all exception handler — ensures CORS headers are ALWAYS present
