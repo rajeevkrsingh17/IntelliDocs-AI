@@ -26,14 +26,13 @@ def get_embeddings(texts):
     if not gemini_client:
         raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
     
+    import concurrent.futures
     from google.genai import types
     import time
     
-    all_embeddings = []
-    batch_size = 20
+    all_embeddings = [None] * len(texts)
     
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i:i + batch_size]
+    def embed_batch(batch_index, batch_texts):
         contents = [
             types.Content(role="user", parts=[types.Part.from_text(text=t)])
             for t in batch_texts
@@ -46,24 +45,40 @@ def get_embeddings(texts):
                     model='gemini-embedding-001',
                     contents=contents,
                 )
-                all_embeddings.extend([e.values for e in response.embeddings])
-                break
+                return [e.values for e in response.embeddings]
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    wait = 15 * (2 ** attempt)  # 15s, 30s, 60s, 120s, 240s
-                    print(f"[Rate limit] Batch {i//batch_size+1}: waiting {wait}s before retry {attempt+1}/{max_attempts}...")
+                    wait = (attempt + 1) * 5 + (attempt ** 2) * 5  # 5s, 15s, 35s, 65s, 105s
+                    print(f"[Rate limit] Batch {batch_index+1} hit 429: waiting {wait}s before retry {attempt+1}/{max_attempts}...")
                     time.sleep(wait)
                 else:
                     raise e
-        else:
-            raise RuntimeError(
-                f"Embedding failed after {max_attempts} retries (rate limit). "
-                f"Please wait a minute and try again."
-            )
-        
-        if i + batch_size < len(texts):
-            time.sleep(2)
-            
+        raise RuntimeError(
+            f"Embedding failed for batch {batch_index+1} after {max_attempts} retries (rate limit). "
+            f"Please wait a minute and try again."
+        )
+
+    # Divide texts into batches of 100 (Gemini API batch limit)
+    batch_size = 100
+    batches = [(i // batch_size, texts[i:i + batch_size]) for i in range(0, len(texts), batch_size)]
+    
+    # Execute concurrently
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {
+            executor.submit(embed_batch, idx, batch): idx
+            for idx, batch in batches
+        }
+        for future in concurrent.futures.as_completed(futures):
+            idx = futures[future]
+            try:
+                batch_embeddings = future.result()
+                # Place embeddings in correct sequential position
+                start_pos = idx * batch_size
+                for offset, emb in enumerate(batch_embeddings):
+                    all_embeddings[start_pos + offset] = emb
+            except Exception as e:
+                raise e
+                
     return all_embeddings
 
 # ------------------------------------------------
@@ -154,6 +169,29 @@ def get_collection():
     return client.get_collection("intellidocs")
 
 
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, maxsize=10):
+        self.cache = OrderedDict()
+        self.maxsize = maxsize
+
+    def get(self, key):
+        if key not in self.cache:
+            return None
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def set(self, key, value):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        if len(self.cache) > self.maxsize:
+            self.cache.popitem(last=False)
+
+_BM25_CACHE = LRUCache(maxsize=10)
+
+
 # ------------------------------------------------
 # Retrieve Relevant Chunks (Hybrid QA Search)
 # ------------------------------------------------
@@ -220,19 +258,38 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         id_to_meta[vid] = vmeta
 
     # 2. BM25 KEYWORD SEARCH
-    # Retrieve documents to run BM25 locally (only fetch text, not metadata for speed)
-    all_data = collection.get(
+    # Retrieve documents to run BM25 locally
+    # First get IDs only (without documents or metadata) to check cache key
+    current_data = collection.get(
         where=where_clause,
-        include=["documents"]
+        include=[]
     )
-    all_ids = all_data.get("ids", [])
-    all_docs = all_data.get("documents", [])
+    current_ids = current_data.get("ids", [])
+    cache_key = tuple(sorted(current_ids))
 
-    for aid, adoc in zip(all_ids, all_docs):
-        id_to_doc[aid] = adoc
+    cached_val = _BM25_CACHE.get(cache_key)
+    if cached_val is not None:
+        bm25_scorer, cached_id_to_doc, all_ids = cached_val
+        # Merge cached document texts
+        for rid, rdoc in cached_id_to_doc.items():
+            id_to_doc[rid] = rdoc
+    else:
+        # Cache miss: fetch all document texts to build BM25
+        all_data = collection.get(
+            where=where_clause,
+            include=["documents"]
+        )
+        all_ids = all_data.get("ids", [])
+        all_docs = all_data.get("documents", [])
 
-    # Build index & score
-    bm25_scorer = BM25(all_docs)
+        cached_id_to_doc = {}
+        for aid, adoc in zip(all_ids, all_docs):
+            id_to_doc[aid] = adoc
+            cached_id_to_doc[aid] = adoc
+
+        bm25_scorer = BM25(all_docs)
+        _BM25_CACHE.set(cache_key, (bm25_scorer, cached_id_to_doc, all_ids))
+
     bm25_scores = bm25_scorer.get_scores(query)
     
     # Sort and take top 15 candidates
