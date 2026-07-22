@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+// In production (Vercel), requests to /api/* are proxied to Render via vercel.json rewrites.
+// In local dev, Vite proxies /api/* to http://127.0.0.1:8000 via vite.config.js.
+// This means ALL requests are same-origin → CORS is completely eliminated.
+const API_URL = "/api";
 
 // Persistent Session ID generator per browser/device
 function getSessionId() {
