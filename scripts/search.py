@@ -3,14 +3,33 @@ import re
 from pathlib import Path
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+import os
+import google.genai as genai
+from dotenv import load_dotenv
+
+# Load .env
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH)
 
 # ------------------------------------------------
 # Load Embedding Model
 # ------------------------------------------------
 
-print("Loading embedding model...")
-model = SentenceTransformer("all-MiniLM-L6-v2")
+print("Initialising Gemini embedding client...")
+try:
+    gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+except Exception as e:
+    print(f"[WARN] Error initialising Gemini client: {e}")
+    gemini_client = None
+
+def get_embeddings(texts):
+    if not gemini_client:
+        raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
+    response = gemini_client.models.embed_content(
+        model='gemini-embedding-2',
+        contents=texts,
+    )
+    return [e.values for e in response.embeddings]
 
 # ------------------------------------------------
 # BM25 Keyword Search Implementation
@@ -127,7 +146,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
         return {"documents": [], "metadata": []}
 
     # 1. DENSE VECTOR SEARCH
-    query_embedding = model.encode([query]).tolist()
+    query_embedding = get_embeddings([query])
     # Retrieve top 20 candidates for dense search
     vector_n = min(30, total_chunks)
     

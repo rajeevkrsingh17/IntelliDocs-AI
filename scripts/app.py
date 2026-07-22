@@ -8,7 +8,6 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 import chromadb
 import streamlit as st
-from sentence_transformers import SentenceTransformer
 
 from llm import generate_answer
 from vector_store import process_pdf, clear_database
@@ -77,17 +76,6 @@ if uploaded_files:
 
     for pdf in uploaded_files:
         st.write(f"✅ {pdf.name}")
-# ------------------------------------------------
-# Load Embedding Model
-# ------------------------------------------------
-
-@st.cache_resource
-def load_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
-
-
-model = load_model()
-
 # ------------------------------------------------
 # Connect ChromaDB
 # ------------------------------------------------

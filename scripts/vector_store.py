@@ -4,7 +4,14 @@ from pathlib import Path
 from datetime import datetime
 
 import chromadb
-from sentence_transformers import SentenceTransformer
+import os
+import google.genai as genai
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH)
 
 from scripts.chunker import chunk_text
 from scripts.document_processor import extract_document
@@ -20,11 +27,21 @@ DB_PATH = BASE_DIR / "data" / "processed" / "chroma_db"
 # Load Embedding Model
 # ------------------------------------------------
 
-print("Loading embedding model...")
+print("Initialising Gemini embedding client...")
 try:
-    model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
-except Exception:
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+    gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+except Exception as e:
+    print(f"[WARN] Error initialising Gemini client: {e}")
+    gemini_client = None
+
+def get_embeddings(texts):
+    if not gemini_client:
+        raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
+    response = gemini_client.models.embed_content(
+        model='gemini-embedding-2',
+        contents=texts,
+    )
+    return [e.values for e in response.embeddings]
 
 # ------------------------------------------------
 # Chroma Collection
@@ -167,8 +184,7 @@ def process_document(file_path):
     # --------------------------------------------
 
     print("Generating embeddings...")
-
-    embeddings = model.encode(all_chunks, batch_size=64, show_progress_bar=False)
+    embeddings = get_embeddings(all_chunks)
 
     # --------------------------------------------
     # ChromaDB
@@ -207,7 +223,7 @@ def process_document(file_path):
     collection.add(
         ids=ids,
         documents=all_chunks,
-        embeddings=embeddings.tolist(),
+        embeddings=embeddings,
         metadatas=metadatas,
     )
 
