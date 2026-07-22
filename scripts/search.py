@@ -25,11 +25,38 @@ except Exception as e:
 def get_embeddings(texts):
     if not gemini_client:
         raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
-    response = gemini_client.models.embed_content(
-        model='gemini-embedding-2',
-        contents=texts,
-    )
-    return [e.values for e in response.embeddings]
+    
+    from google.genai import types
+    import time
+    
+    all_embeddings = []
+    batch_size = 100
+    
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i + batch_size]
+        contents = [
+            types.Content(role="user", parts=[types.Part.from_text(text=t)])
+            for t in batch_texts
+        ]
+        
+        for attempt in range(3):
+            try:
+                response = gemini_client.models.embed_content(
+                    model='text-embedding-004',
+                    contents=contents,
+                )
+                all_embeddings.extend([e.values for e in response.embeddings])
+                break
+            except Exception as e:
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    print(f"Rate limit hit. Retrying batch {i//batch_size} in 5 seconds...")
+                    time.sleep(5)
+                else:
+                    raise e
+        else:
+            raise RuntimeError(f"Failed to generate embeddings after 3 attempts due to rate limit.")
+            
+    return all_embeddings
 
 # ------------------------------------------------
 # BM25 Keyword Search Implementation
