@@ -17,9 +17,9 @@ def extract_pdf_text(pdf_path):
     for page_num, page in enumerate(document, start=1):
         page_text = page.get_text("text").strip()
         
-        # 1. Fast Table Extraction (only if text suggests tabular structure or small doc)
+        # 1. Fast Table Extraction (only if text suggest tables and page count is small)
         table_text = ""
-        if page_text and (page_count <= 20 or "\t" in page_text or "|" in page_text or "  " in page_text):
+        if page_text and page_count <= 15 and ("\t" in page_text or "|" in page_text or "    " in page_text):
             try:
                 tables = page.find_tables()
                 if tables and len(tables) > 0:

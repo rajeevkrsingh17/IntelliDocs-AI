@@ -15,8 +15,8 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Primary Gemini model from .env, fallback to gemini-2.0-flash
-PRIMARY_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# Primary Gemini model from .env, fallback to gemini-3.1-flash-lite
+PRIMARY_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
 # ============================================================
 # MODEL FALLBACK CHAIN

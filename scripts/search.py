@@ -206,26 +206,24 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
         id_to_meta[vid] = vmeta
 
     # 2. BM25 KEYWORD SEARCH
-    # Retrieve documents to run BM25 locally
+    # Retrieve documents to run BM25 locally (only fetch text, not metadata for speed)
     all_data = collection.get(
         where=where_clause,
-        include=["documents", "metadatas"]
+        include=["documents"]
     )
     all_ids = all_data.get("ids", [])
     all_docs = all_data.get("documents", [])
-    all_metas = all_data.get("metadatas", [])
 
-    for aid, adoc, ameta in zip(all_ids, all_docs, all_metas):
+    for aid, adoc in zip(all_ids, all_docs):
         id_to_doc[aid] = adoc
-        id_to_meta[aid] = ameta
 
     # Build index & score
     bm25_scorer = BM25(all_docs)
     bm25_scores = bm25_scorer.get_scores(query)
     
-    # Sort and take top 20 candidates
+    # Sort and take top 15 candidates
     bm25_ranked = sorted(zip(all_ids, bm25_scores), key=lambda x: x[1], reverse=True)
-    bm25_top_n = min(30, len(bm25_ranked))
+    bm25_top_n = min(15, len(bm25_ranked))
     bm25_ids = [bid for bid, bscore in bm25_ranked[:bm25_top_n]]
 
     # 3. RECIPROCAL RANK FUSION (RRF)
@@ -244,6 +242,13 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
     sorted_candidates = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
     top_candidates = sorted_candidates[:n_results]
 
+    # Fetch missing metadatas in a single batch call only for top candidates
+    missing_ids = [cid for cid, _ in top_candidates if cid not in id_to_meta]
+    if missing_ids:
+        meta_results = collection.get(ids=missing_ids, include=["metadatas"])
+        for mid, mmeta in zip(meta_results.get("ids", []), meta_results.get("metadatas", [])):
+            id_to_meta[mid] = mmeta
+
     final_documents = []
     final_metadata = []
 
@@ -253,7 +258,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
 
     for i, (cid, score) in enumerate(top_candidates, start=1):
         doc_text = id_to_doc[cid]
-        doc_meta = id_to_meta[cid]
+        doc_meta = id_to_meta.get(cid, {})
         final_documents.append(doc_text)
         final_metadata.append(doc_meta)
 
