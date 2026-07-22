@@ -30,7 +30,7 @@ def get_embeddings(texts):
     import time
     
     all_embeddings = []
-    batch_size = 100
+    batch_size = 20
     
     for i in range(0, len(texts), batch_size):
         batch_texts = texts[i:i + batch_size]
@@ -39,7 +39,8 @@ def get_embeddings(texts):
             for t in batch_texts
         ]
         
-        for attempt in range(3):
+        max_attempts = 5
+        for attempt in range(max_attempts):
             try:
                 response = gemini_client.models.embed_content(
                     model='gemini-embedding-001',
@@ -49,12 +50,19 @@ def get_embeddings(texts):
                 break
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    print(f"Rate limit hit. Retrying batch {i//batch_size} in 5 seconds...")
-                    time.sleep(5)
+                    wait = 15 * (2 ** attempt)  # 15s, 30s, 60s, 120s, 240s
+                    print(f"[Rate limit] Batch {i//batch_size+1}: waiting {wait}s before retry {attempt+1}/{max_attempts}...")
+                    time.sleep(wait)
                 else:
                     raise e
         else:
-            raise RuntimeError(f"Failed to generate embeddings after 3 attempts due to rate limit.")
+            raise RuntimeError(
+                f"Embedding failed after {max_attempts} retries (rate limit). "
+                f"Please wait a minute and try again."
+            )
+        
+        if i + batch_size < len(texts):
+            time.sleep(2)
             
     return all_embeddings
 
