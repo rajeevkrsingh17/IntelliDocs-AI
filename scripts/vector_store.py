@@ -21,7 +21,12 @@ from scripts.document_processor import extract_document
 # ------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "processed" / "chroma_db"
+
+# Render's project filesystem is read-only at runtime.
+# /tmp is always writable on Render and most cloud platforms.
+_IS_CLOUD = bool(os.getenv("RENDER"))
+DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processed" / "chroma_db"
+print(f"[DB] ChromaDB path: {DB_PATH} | Cloud mode: {_IS_CLOUD}")
 
 # ------------------------------------------------
 # Load Embedding Model

@@ -138,7 +138,10 @@ class BM25:
 # ------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "processed" / "chroma_db"
+
+# On Render, use /tmp (always writable). Must match vector_store.py path.
+_IS_CLOUD = bool(os.getenv("RENDER"))
+DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processed" / "chroma_db"
 
 
 def get_collection():

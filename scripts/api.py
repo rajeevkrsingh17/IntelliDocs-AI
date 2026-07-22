@@ -16,7 +16,9 @@ from scripts.search import retrieve_relevant_chunks, retrieve_multiple_documents
 from scripts.llm import generate_answer, generate_document_comparison
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOAD_DIR = BASE_DIR / "data" / "uploads"
+import os as _os
+_IS_CLOUD = bool(_os.getenv("RENDER"))
+UPLOAD_DIR = Path("/tmp/uploads") if _IS_CLOUD else BASE_DIR / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {
