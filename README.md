@@ -21,9 +21,9 @@
 
 ## 🎥 Demo
 
-- **Live Deployed App (React Frontend):** [https://intellidocs-ai.vercel.app](https://intellidocs-ai.vercel.app) *(Secondary: [https://intellidocs-ai-tau.vercel.app](https://intellidocs-ai-tau.vercel.app))*
-- **Live Deployed API (FastAPI Backend):** [https://intellidocs-api.onrender.com](https://intellidocs-api.onrender.com)
-- **Demo Walkthrough Video (Loom):** [Watch Loom Video Walkthrough](https://www.loom.com/share/placeholder_walkthrough_id_here)
+- **Live Deployed App (React Frontend):** [https://intellidocs-ai-tau.vercel.app](https://intellidocs-ai-tau.vercel.app)
+- **Live Deployed API (FastAPI Backend):** [https://intellidocs-api-yedx.onrender.com](https://intellidocs-api-yedx.onrender.com)
+- **Demo Walkthrough Video (Loom):** [▶️ Watch 3-Min Loom Walkthrough](https://www.loom.com/share/a103a99f1ece4e61bd1b851023f6724f)
 - **Demo Prototype Video (Google Drive):** [Watch Product Demo Video](https://drive.google.com/file/d/1M6AxdbiT9fYv4QrJI_NGNFW7MyIIgBlA/view?usp=sharing)
 - **Live Local REST API:** `http://localhost:8000` (FastAPI Server)
 - **Live Local Streamlit UI:** `http://localhost:8501` (Streamlit App)
@@ -202,14 +202,70 @@ IntelliDocs-AI operates over PDF document corpora uploaded dynamically by users 
 
 ---
 
+## 📂 Repository Structure
+
+```
+IntelliDocs-AI/
+├── frontend/                  # React + Vite SPA (deployed on Vercel)
+│   ├── src/                   # React components & pages
+│   ├── public/                # Static assets
+│   ├── index.html
+│   ├── vite.config.js
+│   ├── package.json
+│   └── vercel.json            # Vercel rewrite rules
+├── scripts/                   # Backend application code
+│   ├── api.py                 # FastAPI REST server
+│   ├── app.py                 # Streamlit UI
+│   ├── vector_store.py        # ChromaDB ingestion & retrieval
+│   ├── search.py              # Hybrid search (Dense + BM25 + RRF)
+│   ├── llm.py                 # LLM fallback cascade engine
+│   ├── chunker.py             # Recursive text chunker
+│   ├── document_processor.py  # PDF extraction orchestrator
+│   ├── embeddings.py          # Gemini embedding wrapper
+│   └── .env                   # API keys (not committed)
+├── docs/                      # Project documentation
+│   ├── adr/                   # Architecture Decision Records
+│   │   ├── ADR-001-vector-store.md
+│   │   ├── ADR-002-gemini-integration.md
+│   │   ├── ADR-003-source-citation.md
+│   │   └── ADR-004-model-fallback.md
+│   ├── architecture_diagram.png
+│   ├── reflection.md
+│   ├── roadmap_3rd_year.md
+│   ├── roadmap_3rd_year_final.md
+│   ├── resume_bullets.md
+│   ├── resume_final.md
+│   ├── mock_interview.md
+│   ├── postmortem.md
+│   ├── status-one-pager.md
+│   └── showcase_slide_content.md
+├── tests/                     # Pytest test suites (10 tests)
+│   ├── conftest.py
+│   ├── test_chunker.py
+│   ├── test_search.py
+│   ├── test_health.py
+│   ├── test_pdf_parser.py
+│   ├── test_vector_store.py
+│   ├── test_embedding_service.py
+│   ├── test_eval.py
+│   └── test_rag_pipeline.py
+├── data/                      # PDF uploads & processed ChromaDB
+├── requirements.txt           # Python dependencies
+├── render.yaml                # Render deployment config
+├── .gitignore
+└── README.md
+```
+
+---
+
 ## 📑 ADRs
 
-All core architecture decisions are documented in [`docs/adr/`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/):
+All core architecture decisions are documented in [`docs/adr/`](docs/adr/):
 
-- [`ADR-001: Selection of ChromaDB as Vector Database`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-001-vector-store.md)
-- [`ADR-002: Google Gemini as Primary LLM Provider`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-002-gemini-integration.md)
-- [`ADR-003: Source Citation Engine for Answer Transparency`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-003-source-citation.md)
-- [`ADR-004: Resilient LLM Fallback Cascade Engine`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/ADR-004-model-fallback.md)
+- [ADR-001: Selection of ChromaDB as Vector Database](docs/adr/ADR-001-vector-store.md)
+- [ADR-002: Google Gemini as Primary LLM & Embedding Provider](docs/adr/ADR-002-gemini-integration.md)
+- [ADR-003: Chunk-Level Source Citation for Answer Transparency](docs/adr/ADR-003-source-citation.md)
+- [ADR-004: Resilient LLM Fallback Cascade Engine](docs/adr/ADR-004-model-fallback.md)
 
 ---
 
@@ -236,7 +292,7 @@ IntelliDocs-AI includes two major mini-extensions that go beyond standard single
 
 ## 🗺️ What I'd Do in 3rd Year
 
-See the complete 12-month roadmap in [`docs/roadmap_3rd_year_final.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/roadmap_3rd_year_final.md):
+See the complete 12-month roadmap in [`docs/roadmap_3rd_year_final.md`](docs/roadmap_3rd_year_final.md):
 - Hybrid search optimization with Qdrant and pgvector.
 - Multi-format document ingestion (DOCX, PPTX, HTML, Markdown).
 - Agentic RAG workflows (query decomposition and self-verification using LangGraph).

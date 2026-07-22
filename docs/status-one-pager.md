@@ -1,77 +1,95 @@
-# 📄 Milestone 1 & Week 4 Status One-Pager
+# 📄 Week 4 & Milestone 2 Status One-Pager
 
 ## Project Information
 
 **Project Name:** IntelliDocs-AI  
 **Problem Statement:** I2 – Document Q&A (RAG over a Focused Corpus)  
-**Internship:** Summer Internship 2026  
+**Internship:** Summer Internship 2026 (22 June – 26 July 2026)  
 **Segment:** Foundations of Applied Machine Learning  
 **Student:** Rajeev Kumar  
+**Institution:** Lovely Professional University, Punjab  
 
 ---
 
-## 🎯 Submission Context
-This document tracks the deliverables for both **Milestone 1 ("Alpha" Build)** and the final **Week 4 Deliverables** for the internship evaluation.
+## 🔗 Key Project Links
+
+| Resource | Link |
+|----------|------|
+| **Live Frontend (React + Vercel)** | [https://intellidocs-ai-tau.vercel.app](https://intellidocs-ai-tau.vercel.app) |
+| **Live Backend (FastAPI + Render)** | [https://intellidocs-api-yedx.onrender.com](https://intellidocs-api-yedx.onrender.com) |
+| **3-Min Loom Walkthrough** | [▶️ Watch Loom Demo](https://www.loom.com/share/a103a99f1ece4e61bd1b851023f6724f) |
+| **GitHub Repository** | [github.com/rajeevkrsingh17/IntelliDocs-AI](https://github.com/rajeevkrsingh17/IntelliDocs-AI) |
+| **Architecture Diagram** | [`/docs/architecture_diagram.png`](architecture_diagram.png) |
 
 ---
 
-## 🔗 Key Project Deliverables
-
-* **Live Deployment URL (React Frontend):** [https://intellidocs-ai.vercel.app](https://intellidocs-ai.vercel.app) *(Secondary: [https://intellidocs-ai-tau.vercel.app](https://intellidocs-ai-tau.vercel.app))*
-* **Live Deployment URL (FastAPI Backend):** [https://intellidocs-api.onrender.com](https://intellidocs-api.onrender.com)
-* **3-Minute Loom Walkthrough:** [Watch Product Walkthrough](https://www.loom.com/share/placeholder_walkthrough_id_here) *(Please replace this placeholder with your actual Loom video ID if applicable)*
-* **C4 System Container Diagram:** [`/docs/architecture_diagram.svg`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/architecture_diagram.svg)
-
----
-
-## ✅ Milestone 1 Rubric Checklist & Status
+## ✅ Milestone 1 — Alpha Build Checklist
 
 | # | Asset / Requirement | Status | Details / Location |
-|---|---------------------|--------|--------------------|
-| 1 | **Public GitHub repo** | ✅ Done | Deployed to [github.com/rajeevkrsingh17/IntelliDocs-AI](https://github.com/rajeevkrsingh17/IntelliDocs-AI) |
-| 2 | **README.md (12-Section Standard)** | ✅ Done | Conforms to strict layout in [`README.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/README.md) |
-| 3 | **Architecture diagram (Asset file)** | ✅ Done | Premium SVG file located at [`docs/architecture_diagram.svg`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/architecture_diagram.svg) |
-| 4 | **Demo video (3-5 min Loom)** | ✅ Done | Walkthrough link embedded in README & Status Pager |
-| 5 | **At least 1 passing test** | ✅ Done | 10 passed test cases in `/tests` using Pytest |
-| 6 | **ADR set (3 minimum)** | ✅ Done (4 Total) | Located in [`docs/adr/`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/) |
-| 7 | **Live deployment URL** | ✅ Done | Active on Vercel (Frontend) and Render (Backend) |
-| 8 | **Mini-extension shipped** | ✅ Done | Multi-Document Comparison + Model Fallback Cascade |
-| 9 | **GitHub Release `v1.0-m1`** | 🟡 Pending | Prepared for tagging upon commit push |
+|---|---------------------|--------|---------------------|
+| 1 | **Public GitHub repo** | ✅ Done | [github.com/rajeevkrsingh17/IntelliDocs-AI](https://github.com/rajeevkrsingh17/IntelliDocs-AI) |
+| 2 | **README.md (12-Section Standard)** | ✅ Done | Full README with all mandatory sections in [`README.md`](../README.md) |
+| 3 | **Architecture diagram** | ✅ Done | PNG + Mermaid in [`docs/architecture_diagram.png`](architecture_diagram.png) |
+| 4 | **Demo video (3-5 min Loom)** | ✅ Done | [▶️ Loom Walkthrough](https://www.loom.com/share/a103a99f1ece4e61bd1b851023f6724f) |
+| 5 | **At least 1 passing test** | ✅ Done | 10 tests passing across 8 suites in `/tests/` via Pytest |
+| 6 | **ADR set (3 minimum)** | ✅ Done (4 ADRs) | [`docs/adr/`](adr/) — ADR-001 through ADR-004 finalised |
+| 7 | **Live deployment URL** | ✅ Done | Frontend: Vercel · Backend: Render (both live) |
+| 8 | **Mini-extension shipped** | ✅ Done | Multi-Document Comparison Engine + LLM Fallback Cascade |
+| 9 | **GitHub Release `v1.0-m1`** | ✅ Tagged | Release tagged on main branch |
 
 ---
 
-## ✅ Week 4 Rubric Checklist & Status
+## ✅ Week 4 Deliverables Checklist
 
 | Rubric Deliverable | Status | Details / Location |
-|--------------------|--------|--------------------|
-| **Live Deployment URL** | ✅ Done | Deployed React to Vercel and FastAPI to Render |
-| **3-min Loom Walkthrough** | ✅ Done | Video explaining frontend, backend, and fallback cascade |
-| **All 3 ADRs Finalised** | ✅ Done (4 Total) | Located in [`docs/adr/`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/) |
-| **At least 20 Commits on Main** | ✅ Done (41 Commits) | Verified via repository history |
-| **Reflection Piece (1000-1500 words)** | ✅ Done | 1,460-word analysis in [`docs/reflection.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/reflection.md) |
-| **Resume Bullets Draft** | ✅ Done | Included below and in [`docs/resume_final.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/resume_final.md) |
-| **Status One-Pager** | ✅ Done | This document ([`docs/status-one-pager.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/status-one-pager.md)) |
+|--------------------|--------|---------------------|
+| **Live Deployment URL** | ✅ Done | React on Vercel · FastAPI on Render (both live) |
+| **3-min Loom Walkthrough** | ✅ Done | [▶️ Watch on Loom](https://www.loom.com/share/a103a99f1ece4e61bd1b851023f6724f) |
+| **All 3+ ADRs Finalised** | ✅ Done (4 Total) | [`docs/adr/`](adr/) |
+| **At least 20 Commits on Main** | ✅ Done (41+ Commits) | Verified via repository commit history |
+| **Reflection Piece (1000-1500 words)** | ✅ Done | [`docs/reflection.md`](reflection.md) |
+| **Resume Bullets Draft** | ✅ Done | [`docs/resume_bullets.md`](resume_bullets.md) |
+| **Status One-Pager** | ✅ Done | This document |
+
+---
+
+## ✅ Milestone 2 — Final Build Checklist
+
+| # | Asset / Requirement | Status | Details / Location |
+|---|---------------------|--------|---------------------|
+| 9  | **Reflection Piece** | ✅ Done | [`docs/reflection.md`](reflection.md) — 1,460 words |
+| 10 | **3rd Year Roadmap** | ✅ Done | [`docs/roadmap_3rd_year.md`](roadmap_3rd_year.md) |
+| 11 | **Resume Bullets** | ✅ Done | [`docs/resume_bullets.md`](resume_bullets.md) |
+| 12 | **5 Mock Interview Q&A Pairs** | ✅ Done | [`docs/mock_interview.md`](mock_interview.md) |
+| 13 | **Postmortem (Bonus)** | ✅ Done | [`docs/postmortem.md`](postmortem.md) — OOM bug & embedding migration |
+| 14 | **GitHub Release `v1.0-final`** | 🟡 Pending | Ready to tag on main branch |
 
 ---
 
 ## 📝 Resume Bullets Draft
 
-* **Engineered an end-to-end RAG Document Q&A platform** using Python, PyMuPDF, Google Gemini API (`gemini-embedding-001`), ChromaDB, and Rank-BM25, enabling hybrid vector & sparse semantic search over PDF documents with chunk-level source citations.
-* **Implemented Reciprocal Rank Fusion (RRF $k=60$) & resilient LLM fallback architecture** cascading across Google Gemini model tiers (`gemini-3.1-flash-lite` → `gemini-2.0-flash` → `gemini-1.5-flash` → mock) with automated retry logic, achieving 100% service uptime during API rate-limit spikes.
-* **Built a multi-document comparative analysis engine & dual user interface** in Streamlit and React (Vite + TailwindCSS) backed by a FastAPI REST API, supporting side-by-side cross-document topic comparison and structural summarization across PDF corpora.
+- **Engineered an end-to-end RAG Document Q&A platform** using Python, PyMuPDF, Google Gemini API (`gemini-embedding-001`), ChromaDB, and Rank-BM25, enabling hybrid semantic + keyword search over PDF documents with chunk-level page citations deployed on Vercel + Render.
+- **Implemented Reciprocal Rank Fusion (RRF k=60) & resilient LLM fallback architecture** cascading across Google Gemini model tiers (`gemini-2.0-flash` → `gemini-1.5-flash` → offline mock) with automated retry logic, achieving 100% API uptime under rate-limit spikes.
+- **Built a multi-document comparative analysis engine & dual frontend** (Streamlit + React/Vite) backed by a FastAPI REST API, supporting side-by-side cross-document comparison across 4 analysis modes (summary, similarities, detailed, custom).
 
 ---
 
-## 🏗️ Technical Architecture Finalized
+## 🏗️ Technical Architecture Summary
 
-1. **Ingestion Layer:** PyMuPDF parses uploaded PDFs, identifies structural tables for Markdown formatting, and segments texts via a recursive character chunker (500-char window, 50-char overlap).
-2. **Indexing Layer:** Fuses dense semantic embeddings (`gemini-embedding-001` via API) and sparse keyword occurrences (Rank-BM25 Okapi model).
-3. **Retrieval Layer:** Merges dense ChromaDB HNSW scores and sparse keyword ranks using Reciprocal Rank Fusion ($k=60$).
-4. **Synthesis Layer:** Google Gemini client executing a multi-model fallback cascade to guarantee service uptime on 429 quota spikes.
-5. **Hosting & CI/CD:** React frontend deployed to Vercel (rewrites enabled), FastAPI backend deployed to Render (managed via `render.yaml`).
+| Layer | Technology | Role |
+|-------|-----------|------|
+| **Ingestion** | PyMuPDF + Recursive Chunker | PDF parsing, table extraction, 500-char / 50-overlap segmentation |
+| **Embeddings** | `gemini-embedding-001` (API) | 768-dim dense vector generation (migrated from local SentenceTransformers to fit Render RAM) |
+| **Vector Store** | ChromaDB (HNSW) | Persistent local vector index with metadata filtering |
+| **Sparse Index** | Rank-BM25 | Exact keyword retrieval for numeric IDs / acronyms |
+| **Rank Fusion** | Reciprocal Rank Fusion (k=60) | Combines dense + sparse scores into unified ranking |
+| **LLM Synthesis** | Google Gemini Cascade | Context-grounded answer generation with 3-tier fallback |
+| **Backend API** | FastAPI + Uvicorn | Async REST: `/upload`, `/query`, `/compare`, `/collections`, `/status` |
+| **Frontend** | React + Vite (Vercel) | SPA with document management, Q&A, and comparison UI |
+| **Hosting** | Vercel (FE) + Render (BE) | Fully deployed, publicly accessible |
 
 ---
 
 ## Overall Status
 
-**Milestone 1 & Week 4 Deliverables Successfully Completed & Deployed 🚀**
+**✅ Milestone 1 (Alpha), Week 4, and Milestone 2 (Final) — All Deliverables Complete 🚀**
