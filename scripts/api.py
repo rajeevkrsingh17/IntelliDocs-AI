@@ -6,8 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from scripts.vector_store import process_document, clear_database, delete_document_from_db, get_all_documents
@@ -46,6 +47,23 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Content-Type"],
 )
+
+
+# Catch-all exception handler — ensures CORS headers are ALWAYS present
+# even when the server crashes with an unhandled 500 error.
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin", "*")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
 
 
 class QueryRequest(BaseModel):
