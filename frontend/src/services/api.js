@@ -65,21 +65,16 @@ export async function uploadDocuments(files, onProgress = () => {}) {
     while (Date.now() - startedAt < MAX_WAIT_MS) {
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-      try {
-        const statusRes = await api.get(`/upload/status/${job_id}`);
-        const data = statusRes.data;
+      const statusRes = await api.get(`/upload/status/${job_id}`);
+      const data = statusRes.data;
 
-        if (data.status === "completed") {
-          onProgress({ phase: "completed", percent: 100 });
-          return data; // { status, uploaded, total_documents, progress }
-        }
-
-        // Still processing — report progress so the bar moves
-        onProgress({ phase: "indexing", percent: data.progress ?? 0 });
-      } catch (pollError) {
-        // Server may return 502/503 while busy with ONNX embeddings — retry silently
-        console.warn("[Poll] Transient error, retrying...", pollError?.response?.status);
+      if (data.status === "completed") {
+        onProgress({ phase: "completed", percent: 100 });
+        return data; // { status, uploaded, total_documents, progress }
       }
+
+      // Still processing — report progress so the bar moves
+      onProgress({ phase: "indexing", percent: data.progress ?? 0 });
     }
 
     throw new Error(

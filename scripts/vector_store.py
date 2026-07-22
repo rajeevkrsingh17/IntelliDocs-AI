@@ -199,23 +199,14 @@ def process_document(file_path, session_id=None):
             meta_entry["session_id"] = session_id
         metadatas.append(meta_entry)
 
-    # Add in small batches so the ONNX embedding doesn't hog all CPU/RAM
-    # and the server stays responsive to HTTP status-poll requests.
-    import time
-    BATCH = 20
-    for start in range(0, len(all_chunks), BATCH):
-        end = min(start + BATCH, len(all_chunks))
-        collection.add(
-            ids=ids[start:end],
-            documents=all_chunks[start:end],
-            metadatas=metadatas[start:end],
-        )
-        print(f"  Added batch {start//BATCH + 1}: chunks {start+1}–{end} of {len(all_chunks)}")
-        # Yield CPU so uvicorn can serve status-poll requests
-        if end < len(all_chunks):
-            time.sleep(0.3)
+    # ChromaDB calls _EF(all_chunks) internally — pure ONNX, no network call
+    collection.add(
+        ids=ids,
+        documents=all_chunks,
+        metadatas=metadatas,
+    )
 
-    print(f"Added {len(all_chunks)} chunks total.")
+    print(f"Added {len(all_chunks)} chunks.")
 
     # --------------------------------------------
     # Summary
