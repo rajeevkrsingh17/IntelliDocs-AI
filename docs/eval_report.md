@@ -66,7 +66,7 @@ Answers are evaluated on 3 axes:
 #### Q7: What embedding models does the project specification list as acceptable?
 - **Expected Answer**: OpenAI, Voyage, or open-source models like BGE, E5, and Nomic.
 - **Generated Answer**: The project specification lists OpenAI, Voyage, or open-source (BGE, E5, Nomic) embeddings.
-  - *Citation*: `[roadmap_3rd_year_final.md, Page 1] (quote: "Embeddings: OpenAI OR Voyage OR open-source (BGE, E5, Nomic)")`
+  - *Citation*: `[roadmap_3rd_year.md, Page 1] (quote: "Embeddings: OpenAI OR Voyage OR open-source (BGE, E5, Nomic)")`
 - **Scores**: Correctness: 5/5 | Citation Precision: 5/5 | Completeness: 5/5
 
 #### Q8: What metadata fields are stored with each chunk in ChromaDB?
@@ -127,7 +127,7 @@ Answers are evaluated on 3 axes:
 #### Q15: What models are recommended in the placement specification for LLM Generation?
 - **Expected Answer**: GPT-4o-mini, Claude Haiku, or open-source (Qwen, Llama).
 - **Generated Answer**: The generation specification suggests: **GPT-4o-mini**, **Claude Haiku**, or open-source (**Qwen**, **Llama**).
-  - *Citation*: `[roadmap_3rd_year_final.md, Page 1] (quote: "Generation: GPT-4o-mini OR Claude Haiku OR open-source (Qwen, Llama) — your choice, justify")`
+  - *Citation*: `[roadmap_3rd_year.md, Page 1] (quote: "Generation: GPT-4o-mini OR Claude Haiku OR open-source (Qwen, Llama) — your choice, justify")`
 - **Scores**: Correctness: 5/5 | Citation Precision: 5/5 | Completeness: 5/5
 
 #### Q16: How does the system behave when a 503 Service Unavailable error occurs?

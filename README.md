@@ -232,7 +232,6 @@ IntelliDocs-AI/
 │   ├── architecture_diagram.png
 │   ├── reflection.md
 │   ├── roadmap_3rd_year.md
-│   ├── roadmap_3rd_year_final.md
 │   ├── resume_bullets.md
 │   ├── resume_final.md
 │   ├── mock_interview.md
@@ -292,7 +291,7 @@ IntelliDocs-AI includes two major mini-extensions that go beyond standard single
 
 ## 🗺️ What I'd Do in 3rd Year
 
-See the complete 12-month roadmap in [`docs/roadmap_3rd_year_final.md`](docs/roadmap_3rd_year_final.md):
+See the complete 12-month roadmap in [`docs/roadmap_3rd_year.md`](docs/roadmap_3rd_year.md):
 - Hybrid search optimization with Qdrant and pgvector.
 - Multi-format document ingestion (DOCX, PPTX, HTML, Markdown).
 - Agentic RAG workflows (query decomposition and self-verification using LangGraph).
