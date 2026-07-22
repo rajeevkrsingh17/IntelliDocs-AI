@@ -42,7 +42,7 @@ def get_embeddings(texts):
         for attempt in range(3):
             try:
                 response = gemini_client.models.embed_content(
-                    model='text-embedding-004',
+                    model='gemini-embedding-001',
                     contents=contents,
                 )
                 all_embeddings.extend([e.values for e in response.embeddings])
