@@ -1,10 +1,10 @@
-# IntelliDocs-AI — 3rd Year Extension Roadmap (Final)
+# IntelliDocs-AI — 3rd Year Extension Roadmap
 
 ## What this project is today (2-3 lines)
 IntelliDocs-AI is an end-to-end RAG system capable of ingesting PDFs and answering questions using a hybrid search mechanism (ChromaDB + Rank-BM25). It uses Google Gemini embeddings and a tiered Gemini LLM cascade to guarantee resilience even under rate limits, deployed on Render (Backend) and Vercel (Frontend).
 
 ## The arc: where this could be by 3rd year internship (May 2027)
-By my 3rd year internship applications, IntelliDocs-AI could evolve from a stateless RAG prototype into an enterprise-grade multimodal research assistant. Instead of just extracting text, it will use Vision-Language Models (VLMs) to semantically index charts and images from PDFs. Based on feedback during Milestone 2, I will also incorporate strict cost-monitoring dashboards, long-term conversational memory (PostgreSQL), and an asynchronous task queue (Celery + Redis) to handle bulk document ingestion without blocking the main API thread.
+By my 3rd year internship applications, IntelliDocs-AI could evolve from a stateless RAG prototype into an enterprise-grade multimodal research assistant. Instead of just extracting text, it will use Vision-Language Models (VLMs) to semantically index charts and images from PDFs. The system will incorporate user accounts (OAuth), long-term conversational memory with session management stored in PostgreSQL, and an asynchronous task queue (Celery + Redis) to handle bulk document ingestion without blocking the main API thread.
 
 ## 3rd Year Semester Plan (Aug 2026 - Dec 2026)
 

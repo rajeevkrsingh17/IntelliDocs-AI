@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Header
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -148,6 +148,7 @@ def list_documents(x_session_id: str | None = Header(None)):
 
 @app.post("/upload")
 async def upload_documents(
+    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     x_session_id: str | None = Header(None),
 ):
@@ -214,7 +215,7 @@ async def upload_documents(
 
         _upload_jobs[job_id]["status"] = "completed"
 
-    threading.Thread(target=_process, daemon=True).start()
+    background_tasks.add_task(_process)
 
     # Return immediately — client must poll /upload/status/{job_id}
     return {

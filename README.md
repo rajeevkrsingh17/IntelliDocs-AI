@@ -9,7 +9,7 @@
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit)
 ![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react)
 ![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)
-![Sentence Transformers](https://img.shields.io/badge/Embeddings-SentenceTransformers-success)
+![Gemini Embeddings](https://img.shields.io/badge/Embeddings-Gemini--Embedding-blue?logo=google)
 ![ChromaDB](https://img.shields.io/badge/Vector%20DB-ChromaDB-green)
 ![Gemini](https://img.shields.io/badge/LLM-Google%20Gemini-4285F4?logo=google)
 ![Pytest](https://img.shields.io/badge/Testing-Pytest%20(10%20Passed)-yellow?logo=pytest)
@@ -19,24 +19,31 @@
 
 ---
 
-## 🎥 1. Project Demo
+## 🎥 Demo
 
-- **Demo Video (Google Drive):** [Watch Product Demo Video](https://drive.google.com/file/d/1M6AxdbiT9fYv4QrJI_NGNFW7MyIIgBlA/view?usp=sharing)
+- **Live Deployed App (React Frontend):** [https://intellidocs-ai.vercel.app](https://intellidocs-ai.vercel.app) *(Secondary: [https://intellidocs-ai-tau.vercel.app](https://intellidocs-ai-tau.vercel.app))*
+- **Live Deployed API (FastAPI Backend):** [https://intellidocs-api.onrender.com](https://intellidocs-api.onrender.com)
+- **Demo Walkthrough Video (Loom):** [Watch Loom Video Walkthrough](https://www.loom.com/share/placeholder_walkthrough_id_here)
+- **Demo Prototype Video (Google Drive):** [Watch Product Demo Video](https://drive.google.com/file/d/1M6AxdbiT9fYv4QrJI_NGNFW7MyIIgBlA/view?usp=sharing)
 - **Live Local REST API:** `http://localhost:8000` (FastAPI Server)
 - **Live Local Streamlit UI:** `http://localhost:8501` (Streamlit App)
 - **Live Local React UI:** `http://localhost:5173` (Vite + React SPA)
 
 ---
 
-## 📌 2. Problem Statement
+## 📌 Problem Statement
 
 Reading and locating specific information inside long PDF documents (e.g., technical specifications, legal contracts, research papers) is time-consuming and inefficient. Traditional keyword searches fail when user queries use different phrasing or conceptual terminology than the source document.
 
-**IntelliDocs-AI** solves this by implementing an end-to-end Retrieval-Augmented Generation (RAG) pipeline. It extracts text and structural elements (markdown tables and image placeholders) from PDF files using PyMuPDF, splits the text into 500-character semantic chunks with 50-character overlap, generates 384-dimensional dense vectors using Sentence Transformers (`all-MiniLM-L6-v2`), indexes them in ChromaDB alongside an in-memory BM25 sparse index, and combines search results via Reciprocal Rank Fusion (RRF $k=60$). Retrieved chunks are passed as context to Google Gemini to synthesize grounded answers backed by chunk-level source citations.
+**IntelliDocs-AI** solves this by implementing an end-to-end Retrieval-Augmented Generation (RAG) pipeline. It extracts text and structural elements (markdown tables and image placeholders) from PDF files using PyMuPDF, splits the text into 500-character semantic chunks with 50-character overlap, generates 768-dimensional dense vectors using Google Gemini Embeddings (`gemini-embedding-001`) to support memory-safe cloud deployment, indexes them in ChromaDB alongside an in-memory BM25 sparse index, and combines search results via Reciprocal Rank Fusion (RRF $k=60$). Retrieved chunks are passed as context to Google Gemini to synthesize grounded answers backed by chunk-level source citations.
 
 ---
 
-## 🏗️ 3. Architecture Diagram
+## 🏗️ Architecture Diagram
+
+*The system uses a 5-tier architecture connecting the React frontend, FastAPI gateway, chunking ingestion pipeline, hybrid HNSW vector + BM25 keyword index, and resilient multi-model Gemini LLM fallback cascade.*
+
+![IntelliDocs-AI System Architecture](docs/architecture_diagram.png)
 
 ```mermaid
 flowchart TD
@@ -57,7 +64,7 @@ flowchart TD
     end
 
     subgraph Storage ["Hybrid Indexing Layer"]
-        DenseEmbed["Sentence Transformers (all-MiniLM-L6-v2)"]
+        DenseEmbed["Google Gemini API (gemini-embedding-001)"]
         ChromaDBStore[("ChromaDB Vector Store (Persistent HNSW)")]
         BM25Index["Rank-BM25 Sparse Index"]
         Chunker --> DenseEmbed --> ChromaDBStore
@@ -81,13 +88,15 @@ flowchart TD
     subgraph LLM ["Generation & Fallback Engine (scripts/llm.py)"]
         RRFEngine --> GroundedContext["Top-k Grounded Context Chunks"]
         GroundedContext --> FallbackCascade{"Multi-Provider Fallback Cascade"}
-        FallbackCascade -->|Primary| Gem2Flash["Gemini 2.0 Flash"]
-        FallbackCascade -->|HTTP 429 Quota| Gem15Flash["Gemini 1.5 Flash / Lite"]
+        FallbackCascade -->|Primary| Gem31Lite["Gemini 3.1 Flash Lite"]
+        FallbackCascade -->|429 Fallback| Gem2Flash["Gemini 2.0 Flash"]
+        FallbackCascade -->|429 Fallback| Gem15Flash["Gemini 1.5 Flash"]
         FallbackCascade -->|Offline / Key Miss| OfflineMock["Local Mock Context Extractor"]
     end
 
     subgraph Output ["Answer Output"]
-        Gem2Flash --> FinalAns["Grounded Answer + Page & Chunk Citations"]
+        Gem31Lite --> FinalAns["Grounded Answer + Page & Chunk Citations"]
+        Gem2Flash --> FinalAns
         Gem15Flash --> FinalAns
         OfflineMock --> FinalAns
     end
@@ -102,28 +111,28 @@ flowchart TD
 
 ---
 
-## 🛠️ 4. Technology Stack
+## 🛠️ Tech Stack
 
 | Component Layer | Tool / Technology | Version / Specification | Rationale & Usage |
 |-----------------|-------------------|-------------------------|-------------------|
 | **Core Runtime** | Python | 3.12 | Primary backend language for NLP and API server |
 | **PDF Extraction** | PyMuPDF (`fitz`) | 1.23+ | Fast C-extension parsing, structured markdown tables (`find_tables()`), image markers |
 | **Text Segmentation** | Custom Recursive Chunker | 500 chars / 50 overlap | Retains cohesive paragraph context while preventing semantic dilution |
-| **Dense Embeddings** | Sentence Transformers | `all-MiniLM-L6-v2` | 384-dimensional dense vectors with fast CPU inference |
-| **Vector DB** | ChromaDB | 0.4+ | Local persistent HNSW vector store with metadata filtering |
-| **Sparse Index** | Rank-BM25 | 0.2+ | Okapi BM25 algorithm for exact keyword matching |
+| **Dense Embeddings** | Google Gemini API | `gemini-embedding-001` | 768-dimensional dense vectors (migrated from local Sentence Transformers to resolve Render RAM OOM) |
+| **Vector DB** | ChromaDB | 1.5.9 | Local persistent HNSW vector store with metadata filtering |
+| **Sparse Index** | Rank-BM25 | 0.2.2 | Okapi BM25 algorithm for exact keyword matching |
 | **Rank Fusion** | Reciprocal Rank Fusion | RRF ($k=60$) | Fuses dense and sparse rankings into a unified score |
-| **Primary LLM** | Google Gemini API | `gemini-2.0-flash` | Context-aware answer synthesis via `google-genai` SDK |
-| **Fallback LLM Tier** | Google Gemini Tier 2 | `gemini-1.5-flash` | Cascades automatically on HTTP 429 rate limits |
+| **Primary LLM** | Google Gemini API | `gemini-3.1-flash-lite` | Context-aware answer synthesis via `google-genai` SDK |
+| **Fallback LLM Tier** | Google Gemini Cascade | `gemini-2.0-flash`, `gemini-1.5-flash` | Cascades automatically on HTTP 429 rate limits |
 | **Offline Fallback** | Local Mock Extractor | Built-in | Graceful offline context extraction when APIs are down |
 | **Backend API** | FastAPI + Uvicorn | 0.109+ | Async REST API (`/upload`, `/query`, `/compare`, `/collections`, `/status`) |
 | **Web Interface 1** | Streamlit | 1.30+ | Python interactive web app (`scripts/app.py`) |
-| **Web Interface 2** | React + Vite | React 18 / Vite 5 | Single Page Application (SPA) in `frontend/` |
+| **Web Interface 2** | React + Vite | React 19 / Vite 8 | Single Page Application (SPA) in `frontend/` |
 | **Testing** | Pytest | 9.1+ | Automated test suite across 8 modules (10/10 passed) |
 
 ---
 
-## ⚙️ 5. Quickstart Guide
+## ⚙️ Quickstart
 
 ### Prerequisites
 - Python 3.10+ (Python 3.12 recommended)
@@ -185,7 +194,7 @@ pytest
 
 ---
 
-## 📊 6. Data Sources & Corpus
+## 📊 Data Sources
 
 IntelliDocs-AI operates over PDF document corpora uploaded dynamically by users or placed in `data/raw/` and `data/uploads/`.
 - Supported input format: `.pdf` (with readable text, tables, and images).
@@ -193,7 +202,7 @@ IntelliDocs-AI operates over PDF document corpora uploaded dynamically by users 
 
 ---
 
-## 📑 7. Architectural Decision Records (ADRs)
+## 📑 ADRs
 
 All core architecture decisions are documented in [`docs/adr/`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/adr/):
 
@@ -204,7 +213,7 @@ All core architecture decisions are documented in [`docs/adr/`](file:///c:/Users
 
 ---
 
-## ✨ 8. Mini-Extension Details
+## ✨ Mini-Extension
 
 IntelliDocs-AI includes two major mini-extensions that go beyond standard single-file RAG tutorials:
 
@@ -218,14 +227,14 @@ IntelliDocs-AI includes two major mini-extensions that go beyond standard single
 
 ---
 
-## ⚠️ 9. Known Limitations
+## ⚠️ Known Limitations
 
 - **Scanned Image-Only PDFs:** Pure scanned image PDFs without an embedded OCR text layer require pre-OCR processing (planned for 3rd-year extension).
 - **Large File Processing Latency:** Parsing and generating dense embeddings for 200+ page PDFs takes 15–30 seconds on local CPU hardware.
 
 ---
 
-## 🗺️ 10. What I'd Do in 3rd Year
+## 🗺️ What I'd Do in 3rd Year
 
 See the complete 12-month roadmap in [`docs/roadmap_3rd_year_final.md`](file:///c:/Users/Rajeev%20Singh/OneDrive/Desktop/IntelliDocs-AI/docs/roadmap_3rd_year_final.md):
 - Hybrid search optimization with Qdrant and pgvector.
@@ -235,7 +244,7 @@ See the complete 12-month roadmap in [`docs/roadmap_3rd_year_final.md`](file:///
 
 ---
 
-## 📄 11. License & Acknowledgements
+## 📄 License + Acknowledgements
 
 - **License:** MIT License
 - **Developer:** Rajeev Kumar (B.Tech CSE - AI & Data Engineering, Lovely Professional University)

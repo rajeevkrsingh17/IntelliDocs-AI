@@ -13,25 +13,11 @@ ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
 # ------------------------------------------------
-# ChromaDB path — must match vector_store.py
+# ChromaDB path and collection retrieval
 # ------------------------------------------------
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+from scripts.vector_store import get_collection
 
-_IS_CLOUD = bool(os.getenv("RENDER"))
-DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processed" / "chroma_db"
-
-# Same ONNX embedding function — no API key, no rate limits
-_EF = DefaultEmbeddingFunction()
-
-
-def get_collection():
-    """
-    Always get the latest collection from ChromaDB with the ONNX embedding function,
-    creating it if it does not already exist.
-    """
-    client = chromadb.PersistentClient(path=str(DB_PATH))
-    return client.get_or_create_collection("intellidocs", embedding_function=_EF)
 
 
 

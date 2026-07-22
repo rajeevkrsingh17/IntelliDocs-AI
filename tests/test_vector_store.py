@@ -12,6 +12,10 @@ def test_vector_store_collection():
     """
     Test that we can retrieve our ChromaDB collection.
     """
+    import os
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    expected_name = "intellidocs_gemini" if GEMINI_API_KEY else "intellidocs"
+    
     collection = get_collection()
     assert collection is not None
-    assert collection.name == "intellidocs"
+    assert collection.name == expected_name

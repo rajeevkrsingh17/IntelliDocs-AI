@@ -1,5 +1,9 @@
 # ADR-001: Selection of ChromaDB as the Vector Database
 
+## Status
+
+Accepted
+
 ## Context
 
 The IntelliDocs-AI project requires a vector database to store document embeddings and retrieve semantically relevant document chunks for question answering. The selected solution should be lightweight, easy to integrate with Python, and suitable for local development during the internship.

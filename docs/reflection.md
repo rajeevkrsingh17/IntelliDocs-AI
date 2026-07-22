@@ -11,72 +11,76 @@
 
 ## Section 1: What I Built (280 words)
 
-Over the past 5 weeks, I built **IntelliDocs-AI**, an end-to-end Retrieval-Augmented Generation (RAG) platform that lets users upload PDF documents, ask natural-language questions, and receive accurate, citation-backed answers. The core problem it solves is simple: reading long PDF documents to find specific information is time-consuming. Instead of manually scrolling through pages, users can ask a question and the system retrieves the most relevant document passages using hybrid vector and sparse BM25 similarity search, then uses Google Gemini to generate a grounded answer.
+Over the past 5 weeks of this internship, I built **IntelliDocs-AI**, an end-to-end Retrieval-Augmented Generation (RAG) platform that enables users to upload PDF documents, ask complex questions in natural language, and receive accurate, citation-backed answers. The system addresses a widespread business problem: manual document search and extraction in unstructured data (such as legal contracts, research papers, and technical guides) is slow, resource-heavy, and error-prone. By combining semantic search with generative language models, the tool allows users to immediately extract factual answers grounded directly in their uploaded files. The pipeline is designed for professionals and researchers who deal with dense document corpora on a daily basis.
 
-The technical pipeline works like this: PyMuPDF extracts text and formats tables into Markdown from uploaded PDFs, a recursive character chunker splits text into 500-character segments with 50-character overlap, Sentence Transformers (`all-MiniLM-L6-v2`) converts each chunk into a 384-dimensional dense vector, ChromaDB stores vectors in a persistent HNSW index, Rank-BM25 indexes keywords, Reciprocal Rank Fusion (RRF $k=60$) merges dense and sparse results, and the top-k chunks are passed as context to Google Gemini for answer generation. Every answer includes source citations showing which document, page, and chunk the information came from.
+The underlying architecture relies on a series of steps: PyMuPDF parses uploaded PDFs and extracts text alongside structural tables; a recursive text chunker splits the text into 500-character segments with 50-character overlap; Google Gemini's `gemini-embedding-001` model converts each chunk into a 768-dimensional dense vector; ChromaDB indexes these vectors in a local HNSW database; Rank-BM25 establishes a parallel sparse keyword index; Reciprocal Rank Fusion (RRF with $k=60$) combines dense and sparse search results; and the top retrieved passages are sent as context to the Gemini API to synthesize grounded answers with chunk-level page citations.
 
-As my **mini-extension**, I built two major features: a **Multi-Document Comparative Analysis Engine** that lets users upload multiple PDFs and compare them side-by-side across 4 modes (`summary`, `similarities`, `detailed`, `custom`), and a **Resilient LLM Fallback Chain** that automatically switches across Gemini model tiers (`gemini-2.0-flash` → `gemini-1.5-flash` → offline mock engine) when API rate limits are hit. I chose these because real-world document analysis often involves multiple files, and production systems need to handle API failures gracefully — both go far beyond what a standard single-file RAG tutorial covers.
-
----
-
-## Section 2: What I Learned About the Tools (380 words)
-
-I worked with four core tools during this internship:
-
-**1. Sentence Transformers (`all-MiniLM-L6-v2`):** Before this project, I thought embedding models were just black boxes that convert text to numbers. Building the pipeline taught me what they actually do — they map text into a semantic space where conceptually similar content sits close together. I was surprised by how much chunk size affects embedding quality. If chunks are too large, the embedding gets diluted; too small, and you lose context. The 500-character sweet spot with 50-character overlap was something I discovered through experimentation.
-
-**2. ChromaDB & Rank-BM25:** I chose ChromaDB as my vector database because it runs locally in persistent client mode without any external infrastructure. What surprised me was how fast the HNSW-based indexing is — even with hundreds of chunks, retrieval takes milliseconds. Combining Rank-BM25 keyword search alongside dense vectors taught me how sparse and dense representations complement each other: BM25 catches exact technical codes and page numbers, while dense vectors capture broad semantic meaning.
-
-**3. PyMuPDF (`fitz`):** I picked this for PDF text extraction after trying alternatives. The key insight was that PDFs don't store text as readable paragraphs — they store glyph positions. PyMuPDF handles text reconstruction well, and its structural table finder (`find_tables()`) allowed me to format tables as clean Markdown tables. It's fast (C-extension under the hood), but output needs post-processing before chunking.
-
-**4. Google Gemini API:** Working with Gemini taught me that the quality of LLM-generated answers depends more on retrieval quality than on the model itself. Even a powerful model produces bad answers if the context you feed it is noisy or irrelevant. I also learned the hard way about rate limiting — hitting HTTP 429 errors during testing is what motivated me to build the resilient model fallback chain.
-
-If I were advising a friend starting with these tools, I'd say: *"Don't start with the LLM. Start with your data pipeline — chunking, embedding, and retrieval. If your retrieval is good, almost any LLM will produce good answers."*
+For my mini-extension, I built two key enhancements: a **Multi-Document Comparative Analysis Engine** that allows users to run cross-document analysis in four formats (summaries, similarities, details, or custom prompts), and a **Resilient LLM Fallback Cascade Engine** that dynamically switches models (`gemini-3.1-flash-lite` → `gemini-2.0-flash` → `gemini-1.5-flash` → local mock) on 429 quota exhaustion. I chose these extensions because real-world Q&A requires synthesizing insights across multiple files, and API failures are a critical vulnerability in production RAG systems.
 
 ---
 
-## Section 3: What I Learned About Myself (360 words)
+## Section 2: What I Learned About the Tools (385 words)
 
-This internship taught me as much about my working style as it did about technology.
+During the project lifecycle, I worked with four key technologies:
 
-**What was easier than expected:** Writing clean, modular Python code. Breaking the project into separate files (`chunker.py`, `vector_store.py`, `llm.py`, `search.py`, `pdf_reader.py`, `api.py`) felt natural. I also found the vector math concepts (cosine similarity, Reciprocal Rank Fusion) intuitive once I stopped overthinking them.
+**1. Google Gemini API (`gemini-embedding-001` & Generative Models):**
+Initially, I used local Sentence Transformers (`all-MiniLM-L6-v2`) for embeddings. However, during cloud deployment on Render's free tier, the application suffered out-of-memory (OOM) failures due to PyTorch and model weights exceeding the 512MB RAM threshold. This forced me to switch to Google Gemini's cloud-based `gemini-embedding-001` API, which outputs 768-dimensional vectors. Working with Gemini taught me that LLM output is heavily dependent on context quality. If retrieval returns irrelevant chunks, even advanced models produce low-quality answers. I also learned to manage rate limits; experiencing HTTP 429 errors during concurrent API calls drove me to build the fallback cascade. For anyone learning Gemini, my advice is: focus heavily on input sanitization and prompt structure, and always design a fallback wrapper to catch rate-limit events.
 
-**What was harder than expected:** Production edge cases. Rate limiting, handling uploaded files of different sizes, ensuring ChromaDB collections reset cleanly, and making both Streamlit and React UIs responsive — these "small" issues consumed more time than the core RAG logic. The gap between "it works on my machine with a sample PDF" and "it works reliably for any user" was much larger than I anticipated.
+**2. ChromaDB:**
+I utilized ChromaDB as the primary vector store. What it actually does is handle local, high-speed vector retrieval using HNSW indexing and metadata filtering. I was surprised by its low-overhead setup in client-only mode, which requires no active database server process. The primary surprise was how metadata updates (such as matching session IDs and page numbers) could be dynamically filtered at query-time. I would tell a friend learning ChromaDB to be careful with persistent paths, clean up collections regularly to prevent lock file issues, and always structure metadata early.
 
-**What kind of work I enjoyed most:** I genuinely enjoyed the backend architecture work — designing the fallback chain, structuring the vector store helpers, writing the hybrid RRF search logic, and creating REST endpoints with FastAPI. There's something satisfying about building a system that handles failures gracefully. I also liked writing tests — seeing green checkmarks after running pytest gives a real sense of confidence.
+**3. Rank-BM25:**
+Rank-BM25 is a lightweight, pure-Python library implementing the Okapi BM25 ranking algorithm. Rather than relying on semantic meaning, it computes exact keyword match frequency across document chunks. I was surprised by how much BM25 improved overall search retrieval: while semantic vectors handle conceptual matching (e.g., "financial health"), BM25 is crucial for catching exact numeric terms, codes, or specific names. The key is combining the two via Reciprocal Rank Fusion (RRF). I would tell a friend that hybrid retrieval is not optional for business data — BM25 is essential to prevent the vector search from missing alphanumeric IDs.
 
-**What kind of work I disliked:** UI styling and layout tweaking. Getting components to align properly and look clean was tedious. I respect frontend developers more now.
-
-**Schedule discipline:** I'll be honest — in Week 2, I procrastinated on writing ADRs and pushed them to the weekend, which caused unnecessary last-minute stress. Starting Week 3, I adopted a "push something every day" habit, even if it was just a README update or a small fix. This completely changed my stress levels. The difference between "I'll do it all on Friday" and "I'll do a little each day" is massive.
-
-**What this tells me:** I'm naturally drawn to backend/systems work in the ML space. The 3rd year internship path that excites me most involves building production ML infrastructure — not just training models, but making them reliable, observable, and maintainable.
-
----
-
-## Section 4: What I'd Do Differently (240 words)
-
-If I started IntelliDocs-AI from scratch, three things would change:
-
-**1. Use Structural Chunking Instead of Fixed-Size:** My chunker uses a fixed 500-character window with 50-character overlap. This works, but it sometimes cuts sentences in half or splits a paragraph across two chunks. A smarter approach would chunk based on document structure — headings, paragraphs, bullet points — preserving semantic boundaries naturally.
-
-**2. Set Up Automated RAG Evaluation Early:** I initially tested Q&A quality manually by asking questions and eyeballing answers. Setting up a formal evaluation framework (like the 22-question test suite in `docs/eval_report.md`) earlier in Week 1 would have allowed me to measure retrieval precision quantitatively from the beginning.
-
-**3. Implement Asynchronous Indexing:** Currently, processing a 50-page PDF blocks the upload request until embedding generation completes. Offloading indexing to a background queue (e.g., Celery or FastAPI background tasks) would make the user experience much smoother.
-
-**What I wish my mentor had told me on Day 1:** *"Get a bare-minimum end-to-end pipeline deployed by Day 3. A working ugly demo is worth infinitely more than a perfect local script you never ship."*
+**4. PyMuPDF (`fitz`):**
+PyMuPDF is a fast, C-based PDF library. It does not parse text as clean strings, but rather extracts glyph coordinates from the PDF page. It was surprising how much cleanup is needed to reconstruct paragraphs and how table extraction (`find_tables()`) needs manual parsing to format as Markdown. For anyone starting with it, I'd say: treat PDF text as raw data that needs extensive cleaning before it ever reaches the chunker.
 
 ---
 
-## Section 5: What's Next — The 3rd Year Plan (250 words)
+## Section 3: What I Learned About Myself (310 words)
 
-IntelliDocs-AI is my foundation project. Over the next 12 months, I plan to extend it into a production-grade Document Intelligence Platform.
+Building IntelliDocs-AI forced me to face my technical preferences and work habits.
 
-**Phase 1 (Aug–Oct 2026):** Add Redis embedding caching, multi-format document support (DOCX, PPTX, Markdown, HTML), and OCR for scanned PDFs using Tesseract.
+**What was easier than expected:**
+Designing the backend architecture and implementing FastAPI endpoints felt very natural. I enjoyed structuring the utility modules (like the search fuse engine, chunker, and LLM cascade wrapper) and writing clean, async Python code. The mathematics behind Reciprocal Rank Fusion (RRF) also seemed much easier to implement and test than I had anticipated.
 
-**Phase 2 (Nov 2026–Jan 2027):** Implement agentic RAG workflows — the system should be able to break complex questions into sub-queries, retrieve from multiple sources, and self-verify its answers using LangGraph. Add multi-turn conversation memory using Redis.
+**What was harder than expected:**
+Deploying to the cloud and managing hosting edge cases was challenging. Resolving the memory bottleneck on Render (debugging the PyTorch OOM, switching to API embeddings) took a full day of trial and error. I also spent a lot of time getting CORS headers to work reliably across Vercel and Render, ensuring the React frontend could talk to the API even when backend endpoints returned 500 errors.
 
-**Phase 3 (Feb–May 2027):** Containerize the application with Docker, add CI/CD with GitHub Actions, implement observability with Prometheus/Grafana, and deploy on cloud infrastructure (AWS/GCP free tier or Railway).
+**What kind of work I enjoyed/hated:**
+I loved backend systems engineering — designing the fallback cascades, tracking rate limit parameters, and organizing session isolations. Writing tests using `pytest` was also rewarding because passing tests provided a strong guarantee of code health. On the other hand, I disliked writing CSS and tweaking the UI layout in the React frontend; aligning components, fixing responsive sidebars, and debugging styling issues felt tedious and repetitive compared to backend logic.
 
-By May 2027, this project will be ready for the 3rd-year internship under **Problem Code E3: Enterprise RAG over Dirty Data & Multi-Source Corpus**. The foundation I built this summer — PDF ingestion, vector search, LLM integration, fallback resilience — will be the starting point, not the starting-from-zero experience.
+**Schedule and discipline:**
+During Week 2, I procrastinated on documenting my architecture decisions, which led to a hectic weekend of writing ADRs. Recognizing this pattern, I forced myself in Weeks 3 and 4 to adopt a "continuous integration" mindset: committing code daily, documenting changes in real-time, and updating task sheets. This shift significantly reduced stress and kept the project on track. This taught me that I work best in structured, daily cycles rather than long, high-pressure sessions.
 
-The most important thing I learned this month: **shipping a working thing teaches you more than planning a perfect thing.** I plan to keep that mindset through 3rd year.
+---
+
+## Section 4: What I'd Do Differently (245 words)
+
+If I were to rebuild IntelliDocs-AI from the ground up, I would make three major architectural adjustments:
+
+First, I would implement **structural, document-aware chunking** instead of a fixed character window. Fixed-size chunking (like 500 characters) occasionally splits a sentence in half, separating key subjects from their verbs and diluting semantic embeddings. A layout-aware parser that respects headings, paragraphs, and lists would preserve logical boundaries and improve retrieval accuracy.
+
+Second, I would build a **background task worker** (using Celery or FastAPI's `BackgroundTask` class) for document ingestion. Currently, when a user uploads a PDF, the main HTTP thread blocks while the system extracts text, generates embeddings via the Gemini API, and updates ChromaDB. For large files, this blocks the client and risks timeout errors. Decoupling ingestion to run asynchronously would make the user interface much more responsive.
+
+Third, I would introduce **automated RAG evaluation frameworks** (like Ragas) on Day 1. Manual QA verification of 20+ sample questions is time-consuming and subjective. A quantitative pipeline to track faithfulness and answer relevance would have accelerated prompt iteration.
+
+**What I wish my mentor had told me on Day 1:**
+*"Don't spend days trying to design the perfect local architecture. Build a simple end-to-end prototype, deploy it immediately, and then iterate. Production deployment is where the real bottlenecks and constraints reveal themselves."*
+
+---
+
+## Section 5: What's Next — The 3rd Year Plan (240 words)
+
+IntelliDocs-AI serves as the foundation for my 3rd-year portfolio. I intend to expand it into an enterprise-ready Document Intelligence platform over the next year.
+
+**Phase 1 (August - October 2026): Ingestion & OCR Expansion**
+I will integrate Tesseract OCR/EasyOCR to handle scanned PDFs and image-based documents. I will also add support for DOCX, PPTX, HTML, and Markdown formats, expanding the system's ingestion utility beyond raw PDF text.
+
+**Phase 2 (November 2026 - January 2027): Agentic Retrieval**
+I plan to implement agentic RAG workflows using LangGraph. The agent will analyze complex user queries, break them down into sub-questions, query separate data stores, and run an autonomous self-correction loop to verify if the retrieved context actually answers the query before compiling the final response. I will also add multi-turn conversation memory backed by Redis.
+
+**Phase 3 (February - May 2027): Enterprise Scaling & MLOps**
+I will containerize the app using Docker Compose, set up CI/CD workflows using GitHub Actions, and deploy the services on cloud infrastructure (AWS or GCP). I will also add Prometheus metrics to monitor query latency, system memory usage, and API drift.
+
+By May 2027, this project will be positioned for the 3rd-year internship under **Problem Statement E3: Enterprise RAG over Dirty Data & Multi-Source Corpus**. The baseline architecture established this summer will give me a significant head start.

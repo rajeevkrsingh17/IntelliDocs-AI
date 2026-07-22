@@ -7,6 +7,7 @@ import chromadb
 import os
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from dotenv import load_dotenv
+import google.genai as genai
 
 # Load .env
 ENV_PATH = Path(__file__).resolve().parent / ".env"
@@ -25,31 +26,86 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # /tmp is always writable on Render and most cloud platforms.
 _IS_CLOUD = bool(os.getenv("RENDER"))
 DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processed" / "chroma_db"
+UPLOAD_DIR = Path("/tmp/uploads") if _IS_CLOUD else BASE_DIR / "data" / "uploads"
 print(f"[DB] ChromaDB path: {DB_PATH} | Cloud mode: {_IS_CLOUD}")
 
 # ------------------------------------------------
-# Embedding Model — ChromaDB built-in ONNX
-# No API key. No rate limits. No quotas. Ever.
-# Uses all-MiniLM-L6-v2 via onnxruntime (~23MB model, ~200MB RAM).
+# Embedding Functions
 # ------------------------------------------------
 
-print("Initialising ChromaDB DefaultEmbeddingFunction (ONNX all-MiniLM-L6-v2)...")
-_EF = DefaultEmbeddingFunction()
-print("Embedding function ready — no API key required.")
+class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
+    """
+    Custom ChromaDB Embedding Function that calls Google Gemini API.
+    Uses 'models/gemini-embedding-001' with 768 dimensions config.
+    """
+    def __init__(self, api_key: str):
+        self.client = genai.Client(api_key=api_key)
 
+    def __call__(self, input: chromadb.Documents) -> chromadb.Embeddings:
+        if not input:
+            return []
+        
+        import time
+        from google.genai import types
+        embeddings = []
+        batch_size = 100
+        for i in range(0, len(input), batch_size):
+            batch = input[i:i + batch_size]
+            max_retries = 5
+            backoff_delay = 2.0
+            for attempt in range(max_retries):
+                try:
+                    response = self.client.models.embed_content(
+                        model="models/gemini-embedding-001",
+                        contents=batch,
+                        config=types.EmbedContentConfig(output_dimensionality=768),
+                    )
+                    for emb in response.embeddings:
+                        embeddings.append(emb.values)
+                    break
+                except Exception as e:
+                    error_str = str(e)
+                    is_rate_limit = any(k in error_str for k in ("429", "RESOURCE_EXHAUSTED", "rate_limit_exceeded"))
+                    
+                    if is_rate_limit and attempt < max_retries - 1:
+                        print(f"[WARN] Gemini embedding quota hit. Retrying in {backoff_delay}s (attempt {attempt + 1}/{max_retries})...")
+                        time.sleep(backoff_delay)
+                        backoff_delay *= 2
+                        continue
+                    else:
+                        print(f"[WARN] Gemini embedding API call failed: {e}")
+                        raise e
+        return embeddings
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Initialize embedding functions
+_EF_ONNX = DefaultEmbeddingFunction()
+_EF_GEMINI = None
+
+if GEMINI_API_KEY:
+    try:
+        _EF_GEMINI = GeminiEmbeddingFunction(api_key=GEMINI_API_KEY)
+        print("Gemini Cloud Embedding Function initialized (models/gemini-embedding-001, 768 dims).")
+    except Exception as e:
+        print(f"[WARN] Failed to initialize Gemini Embedding Function: {e}")
+else:
+    print("[WARN] GEMINI_API_KEY not found. Using local ONNX embeddings.")
 
 # ------------------------------------------------
 # Chroma Collection
 # ------------------------------------------------
 
-
 def get_collection():
     """
-    Returns the IntelliDocs collection with the ONNX embedding function attached.
-    Creates it if it does not already exist.
+    Returns the appropriate collection based on whether Gemini API is available.
     """
     client = chromadb.PersistentClient(path=str(DB_PATH))
-    return client.get_or_create_collection("intellidocs", embedding_function=_EF)
+    if _EF_GEMINI is not None:
+        return client.get_or_create_collection("intellidocs_gemini", embedding_function=_EF_GEMINI)
+    else:
+        return client.get_or_create_collection("intellidocs", embedding_function=_EF_ONNX)
+
 
 
 
@@ -256,7 +312,7 @@ def get_all_documents(session_id=None) -> list[dict]:
                 continue
 
             if doc_name not in doc_info:
-                doc_path = BASE_DIR / "data" / "uploads" / doc_name
+                doc_path = UPLOAD_DIR / doc_name
                 size = 0
                 if doc_path.exists():
                      size = doc_path.stat().st_size
