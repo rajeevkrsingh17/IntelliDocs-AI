@@ -36,10 +36,15 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for Vercel
+    allow_origins=[
+        "*",  # Allow all origins (covers Vercel preview deployments)
+        "https://intellidocs-ai-tau.vercel.app",
+        "https://intellidocs-ai.vercel.app",
+    ],
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["Content-Type"],
 )
 
 
