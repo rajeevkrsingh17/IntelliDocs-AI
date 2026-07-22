@@ -5,9 +5,8 @@ from datetime import datetime
 
 import chromadb
 import os
-import google.genai as genai
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from dotenv import load_dotenv
-from pathlib import Path
 
 # Load .env
 ENV_PATH = Path(__file__).resolve().parent / ".env"
@@ -29,65 +28,14 @@ DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processe
 print(f"[DB] ChromaDB path: {DB_PATH} | Cloud mode: {_IS_CLOUD}")
 
 # ------------------------------------------------
-# Load Embedding Model
+# Embedding Model — ChromaDB built-in ONNX
+# No API key. No rate limits. No quotas. Ever.
+# Uses all-MiniLM-L6-v2 via onnxruntime (~23MB model, ~200MB RAM).
 # ------------------------------------------------
 
-print("Initialising Gemini embedding client...")
-try:
-    gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-except Exception as e:
-    print(f"[WARN] Error initialising Gemini client: {e}")
-    gemini_client = None
-
-def get_embeddings(texts):
-    if not gemini_client:
-        raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
-    
-    from google.genai import types
-    import time
-    
-    all_embeddings = []
-    # 100 is the Gemini API max per call — so most small/medium docs = 1 request
-    batch_size = 100
-    
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i:i + batch_size]
-        contents = [
-            types.Content(role="user", parts=[types.Part.from_text(text=t)])
-            for t in batch_texts
-        ]
-        
-        # Sequential retry with gentle backoff — runs in background thread,
-        # so no HTTP timeout applies here.
-        max_attempts = 8
-        for attempt in range(max_attempts):
-            try:
-                response = gemini_client.models.embed_content(
-                    model='gemini-embedding-001',
-                    contents=contents,
-                )
-                all_embeddings.extend([e.values for e in response.embeddings])
-                break
-            except Exception as e:
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    wait = min(60, 5 * (attempt + 1))  # 5s, 10s, 15s … 60s
-                    print(f"[Rate limit] Batch {i//batch_size+1}: waiting {wait}s "
-                          f"(attempt {attempt+1}/{max_attempts})...")
-                    time.sleep(wait)
-                else:
-                    raise e
-        else:
-            raise RuntimeError(
-                f"Embedding batch {i//batch_size+1} failed after {max_attempts} retries. "
-                "The Gemini free-tier quota may be exhausted — please wait a few minutes and retry."
-            )
-        
-        # Small courtesy delay between multiple batches
-        if i + batch_size < len(texts):
-            time.sleep(1)
-            
-    return all_embeddings
-
+print("Initialising ChromaDB DefaultEmbeddingFunction (ONNX all-MiniLM-L6-v2)...")
+_EF = DefaultEmbeddingFunction()
+print("Embedding function ready — no API key required.")
 
 
 # ------------------------------------------------
@@ -97,22 +45,12 @@ def get_embeddings(texts):
 
 def get_collection():
     """
-    Returns the IntelliDocs collection.
+    Returns the IntelliDocs collection with the ONNX embedding function attached.
     Creates it if it does not already exist.
     """
-
     client = chromadb.PersistentClient(path=str(DB_PATH))
+    return client.get_or_create_collection("intellidocs", embedding_function=_EF)
 
-    try:
-        collection = client.get_collection("intellidocs")
-        print("Existing collection loaded.")
-
-    except Exception:
-
-        collection = client.create_collection("intellidocs")
-        print("New collection created.")
-
-    return collection
 
 
 # ------------------------------------------------
@@ -159,7 +97,7 @@ def _split_text_by_pages(text):
 
 def process_document(file_path, session_id=None):
     """
-    Extract text, create chunks, generate embeddings
+    Extract text, create chunks, generate embeddings (via ONNX — no API needed)
     and store them inside ChromaDB.
 
     Works with:
@@ -183,7 +121,7 @@ def process_document(file_path, session_id=None):
     print("Extracting text...")
 
     extracted = extract_document(file_path)
-    
+
     # Handle both dict format (with metadata) and string format (backward compatibility)
     if isinstance(extracted, dict):
         text = extracted.get("text", "")
@@ -227,16 +165,11 @@ def process_document(file_path, session_id=None):
         raise ValueError("No chunks could be generated from the document.")
 
     # --------------------------------------------
-    # Embeddings
+    # ChromaDB — embeddings generated automatically
+    # by the ONNX embedding function, no API call needed
     # --------------------------------------------
 
-    print("Generating embeddings...")
-    embeddings = get_embeddings(all_chunks)
-
-    # --------------------------------------------
-    # ChromaDB
-    # --------------------------------------------
-
+    print("Storing chunks (ONNX embeddings generated in-process)...")
     collection = get_collection()
 
     # Remove existing chunks for this document if re-uploaded
@@ -249,16 +182,11 @@ def process_document(file_path, session_id=None):
         pass
 
     ids = []
-
     metadatas = []
-
     base_count = collection.count()
 
     for i in range(len(all_chunks)):
-
-        ids.append(
-            f"{file_path.stem}_chunk_{base_count + i}"
-        )
+        ids.append(f"{file_path.stem}_chunk_{base_count + i}")
 
         meta_entry = {
             "document_name": file_path.name,
@@ -271,10 +199,10 @@ def process_document(file_path, session_id=None):
             meta_entry["session_id"] = session_id
         metadatas.append(meta_entry)
 
+    # ChromaDB calls _EF(all_chunks) internally — pure ONNX, no network call
     collection.add(
         ids=ids,
         documents=all_chunks,
-        embeddings=embeddings,
         metadatas=metadatas,
     )
 
@@ -297,7 +225,6 @@ def process_document(file_path, session_id=None):
     print(f"\nTotal Chunks in Database : {collection.count()}")
 
     print("\nMetadata Stored")
-
     print("- Document Name")
     print("- Document Type")
     print("- Chunk Number")
@@ -321,19 +248,19 @@ def get_all_documents(session_id=None) -> list[dict]:
         metadatas = results.get("metadatas", [])
         if not metadatas:
             return []
-        
+
         doc_info = {}
         for meta in metadatas:
             doc_name = meta.get("document_name")
             if not doc_name:
                 continue
-            
+
             if doc_name not in doc_info:
                 doc_path = BASE_DIR / "data" / "uploads" / doc_name
                 size = 0
                 if doc_path.exists():
                      size = doc_path.stat().st_size
-                
+
                 doc_info[doc_name] = {
                     "name": doc_name,
                     "type": meta.get("document_type", ""),
@@ -341,10 +268,10 @@ def get_all_documents(session_id=None) -> list[dict]:
                     "pages": 1,
                     "size": size,
                 }
-            
+
             doc_info[doc_name]["chunks"] += 1
             doc_info[doc_name]["pages"] = max(doc_info[doc_name]["pages"], meta.get("page", 1))
-            
+
         return list(doc_info.values())
     except Exception as e:
         print(f"[WARN] Failed to retrieve documents from ChromaDB: {e}")

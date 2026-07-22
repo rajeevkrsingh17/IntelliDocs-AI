@@ -1,10 +1,11 @@
 import math
 import re
 from pathlib import Path
+from collections import OrderedDict
 
 import chromadb
 import os
-import google.genai as genai
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from dotenv import load_dotenv
 
 # Load .env
@@ -12,60 +13,25 @@ ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
 # ------------------------------------------------
-# Load Embedding Model
+# ChromaDB path — must match vector_store.py
 # ------------------------------------------------
 
-print("Initialising Gemini embedding client...")
-try:
-    gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-except Exception as e:
-    print(f"[WARN] Error initialising Gemini client: {e}")
-    gemini_client = None
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-def get_embeddings(texts):
-    if not gemini_client:
-        raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
-    
-    from google.genai import types
-    import time
-    
-    all_embeddings = []
-    batch_size = 100  # max per Gemini API call
+_IS_CLOUD = bool(os.getenv("RENDER"))
+DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processed" / "chroma_db"
 
-    for i in range(0, len(texts), batch_size):
-        batch_texts = texts[i:i + batch_size]
-        contents = [
-            types.Content(role="user", parts=[types.Part.from_text(text=t)])
-            for t in batch_texts
-        ]
-        
-        max_attempts = 8
-        for attempt in range(max_attempts):
-            try:
-                response = gemini_client.models.embed_content(
-                    model='gemini-embedding-001',
-                    contents=contents,
-                )
-                all_embeddings.extend([e.values for e in response.embeddings])
-                break
-            except Exception as e:
-                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    wait = min(60, 5 * (attempt + 1))  # 5s, 10s, 15s … 60s
-                    print(f"[Rate limit] Batch {i//batch_size+1}: waiting {wait}s "
-                          f"(attempt {attempt+1}/{max_attempts})...")
-                    time.sleep(wait)
-                else:
-                    raise e
-        else:
-            raise RuntimeError(
-                f"Embedding batch {i//batch_size+1} failed after {max_attempts} retries. "
-                "The Gemini free-tier quota may be exhausted — please wait a few minutes and retry."
-            )
-        
-        if i + batch_size < len(texts):
-            time.sleep(1)
-            
-    return all_embeddings
+# Same ONNX embedding function — no API key, no rate limits
+_EF = DefaultEmbeddingFunction()
+
+
+def get_collection():
+    """
+    Always get the latest collection from ChromaDB with the ONNX embedding function,
+    creating it if it does not already exist.
+    """
+    client = chromadb.PersistentClient(path=str(DB_PATH))
+    return client.get_or_create_collection("intellidocs", embedding_function=_EF)
 
 
 
@@ -99,19 +65,19 @@ class BM25:
             doc_len = len(tokens)
             self.doc_lengths.append(doc_len)
             total_len += doc_len
-            
+
             # Term frequencies in this document
             tf = {}
             for token in tokens:
                 tf[token] = tf.get(token, 0) + 1
             self.doc_term_freqs.append(tf)
-            
+
             # Document frequency for terms
             for token in tf.keys():
                 term_doc_freq[token] = term_doc_freq.get(token, 0) + 1
 
         self.avg_doc_len = total_len / self.corpus_size if self.corpus_size > 0 else 0
-        
+
         # Calculate IDF for each term
         for term, freq in term_doc_freq.items():
             self.idf[term] = math.log((self.corpus_size - freq + 0.5) / (freq + 0.5) + 1.0)
@@ -119,12 +85,12 @@ class BM25:
     def get_scores(self, query):
         query_tokens = self._tokenize(query)
         scores = []
-        
+
         for i in range(self.corpus_size):
             score = 0.0
             doc_len = self.doc_lengths[i]
             tf = self.doc_term_freqs[i]
-            
+
             for token in query_tokens:
                 if token in tf:
                     term_freq = tf[token]
@@ -132,32 +98,14 @@ class BM25:
                     denominator = term_freq + self.k1 * (1 - self.b + self.b * doc_len / self.avg_doc_len)
                     score += self.idf.get(token, 0.0) * (numerator / denominator)
             scores.append(score)
-            
+
         return scores
 
 
 # ------------------------------------------------
-# ChromaDB
+# BM25 Index LRU Cache
+# Avoids rebuilding the BM25 index on every query
 # ------------------------------------------------
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# On Render, use /tmp (always writable). Must match vector_store.py path.
-_IS_CLOUD = bool(os.getenv("RENDER"))
-DB_PATH = Path("/tmp/chroma_db") if _IS_CLOUD else BASE_DIR / "data" / "processed" / "chroma_db"
-
-
-def get_collection():
-    """
-    Always get the latest collection from ChromaDB.
-    """
-
-    client = chromadb.PersistentClient(path=str(DB_PATH))
-
-    return client.get_collection("intellidocs")
-
-
-from collections import OrderedDict
 
 class LRUCache:
     def __init__(self, maxsize=10):
@@ -187,6 +135,7 @@ _BM25_CACHE = LRUCache(maxsize=10)
 def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id=None):
     """
     Retrieve the most relevant chunks using Hybrid Search (BM25 + Dense vector similarity).
+    Dense search uses ChromaDB's built-in ONNX embedding — no Gemini API call needed.
     Results are merged using Reciprocal Rank Fusion (RRF).
     """
 
@@ -209,11 +158,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
     if total_chunks == 0:
         return {"documents": [], "metadata": []}
 
-    # 1. DENSE VECTOR SEARCH
-    query_embedding = get_embeddings([query])
-    # Retrieve top 20 candidates for dense search
-    vector_n = min(30, total_chunks)
-    
+    # Build where clause
     conditions = []
     if session_id:
         conditions.append({"session_id": session_id})
@@ -226,9 +171,13 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         where_clause = conditions[0]
     else:
         where_clause = {"$and": conditions}
-    
+
+    # 1. DENSE VECTOR SEARCH
+    # ChromaDB embeds the query internally using ONNX — no API call!
+    vector_n = min(30, total_chunks)
+
     vector_results = collection.query(
-        query_embeddings=query_embedding,
+        query_texts=[query],          # ChromaDB calls _EF([query]) internally
         n_results=vector_n,
         where=where_clause,
         include=["documents", "metadatas"],
@@ -246,8 +195,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         id_to_meta[vid] = vmeta
 
     # 2. BM25 KEYWORD SEARCH
-    # Retrieve documents to run BM25 locally
-    # First get IDs only (without documents or metadata) to check cache key
+    # Fetch IDs only to build cache key (fast — no document text transfer)
     current_data = collection.get(
         where=where_clause,
         include=[]
@@ -258,7 +206,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
     cached_val = _BM25_CACHE.get(cache_key)
     if cached_val is not None:
         bm25_scorer, cached_id_to_doc, all_ids = cached_val
-        # Merge cached document texts
+        # Merge cached document texts into lookup map
         for rid, rdoc in cached_id_to_doc.items():
             id_to_doc[rid] = rdoc
     else:
@@ -279,18 +227,16 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         _BM25_CACHE.set(cache_key, (bm25_scorer, cached_id_to_doc, all_ids))
 
     bm25_scores = bm25_scorer.get_scores(query)
-    
+
     # Sort and take top 15 candidates
     bm25_ranked = sorted(zip(all_ids, bm25_scores), key=lambda x: x[1], reverse=True)
     bm25_top_n = min(15, len(bm25_ranked))
     bm25_ids = [bid for bid, bscore in bm25_ranked[:bm25_top_n]]
 
     # 3. RECIPROCAL RANK FUSION (RRF)
-    # RRF constant k
     k = 60
     rrf_scores = {}
 
-    # Rank lists
     for rank, rid in enumerate(vec_ids, start=1):
         rrf_scores[rid] = rrf_scores.get(rid, 0.0) + (1.0 / (k + rank))
 
@@ -321,7 +267,6 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         final_documents.append(doc_text)
         final_metadata.append(doc_meta)
 
-        # Print debug log
         print(f"\nChunk {i} (RRF Score: {score:.5f})")
         print("-" * 60)
         try:
@@ -331,12 +276,11 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         print(f"Type     : {doc_meta.get('document_type')}")
         print(f"Chunk    : {doc_meta.get('chunk')}")
         print(f"Page     : {doc_meta.get('page')}")
-        
-        # Show ranks in original sources
+
         vec_rank = vec_ids.index(cid) + 1 if cid in vec_ids else "N/A"
         bm25_rank = bm25_ids.index(cid) + 1 if cid in bm25_ids else "N/A"
         print(f"Dense Rank: {vec_rank} | BM25 Rank: {bm25_rank}")
-        
+
         print("\nPreview:\n")
         try:
             print(doc_text[:500])
@@ -375,10 +319,7 @@ def retrieve_document_content(document_name, session_id=None):
 
     results = collection.get(
         where=where_clause,
-        include=[
-            "documents",
-            "metadatas",
-        ],
+        include=["documents", "metadatas"],
     )
 
     documents = results.get("documents", [])
