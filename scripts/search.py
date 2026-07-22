@@ -155,7 +155,7 @@ def get_collection():
 # Retrieve Relevant Chunks (Hybrid QA Search)
 # ------------------------------------------------
 
-def retrieve_relevant_chunks(query, n_results=10, document_name=None):
+def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id=None):
     """
     Retrieve the most relevant chunks using Hybrid Search (BM25 + Dense vector similarity).
     Results are merged using Reciprocal Rank Fusion (RRF).
@@ -169,7 +169,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
         )
 
     print("\n" + "=" * 80)
-    print("HYBRID SEARCH QUERY")
+    print(f"HYBRID SEARCH QUERY | Session: {session_id}")
     print("=" * 80)
     try:
         print(query)
@@ -185,7 +185,18 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
     # Retrieve top 20 candidates for dense search
     vector_n = min(30, total_chunks)
     
-    where_clause = {"document_name": document_name} if document_name else None
+    conditions = []
+    if session_id:
+        conditions.append({"session_id": session_id})
+    if document_name:
+        conditions.append({"document_name": document_name})
+
+    if not conditions:
+        where_clause = None
+    elif len(conditions) == 1:
+        where_clause = conditions[0]
+    else:
+        where_clause = {"$and": conditions}
     
     vector_results = collection.query(
         query_embeddings=query_embedding,
@@ -296,7 +307,7 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None):
 # Retrieve Full Document Content (Compare Documents)
 # ------------------------------------------------
 
-def retrieve_document_content(document_name):
+def retrieve_document_content(document_name, session_id=None):
     """
     Retrieve all chunks belonging to a specific document.
     Returns the complete reconstructed document text.
@@ -310,10 +321,12 @@ def retrieve_document_content(document_name):
             "No documents indexed yet. Please upload a document first."
         )
 
+    where_clause = {"document_name": document_name}
+    if session_id:
+        where_clause = {"$and": [{"document_name": document_name}, {"session_id": session_id}]}
+
     results = collection.get(
-        where={
-            "document_name": document_name
-        },
+        where=where_clause,
         include=[
             "documents",
             "metadatas",
@@ -351,7 +364,7 @@ def retrieve_document_content(document_name):
 # Retrieve Multiple Documents
 # ------------------------------------------------
 
-def retrieve_multiple_documents(document_names):
+def retrieve_multiple_documents(document_names, session_id=None):
     """
     Retrieve multiple documents for comparison.
     """
@@ -360,7 +373,7 @@ def retrieve_multiple_documents(document_names):
 
     for name in document_names:
 
-        doc = retrieve_document_content(name)
+        doc = retrieve_document_content(name, session_id)
 
         if doc["content"].strip():
             documents.append(doc)

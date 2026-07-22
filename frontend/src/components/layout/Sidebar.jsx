@@ -14,7 +14,7 @@ import WorkspaceStats from "../chat/WorkspaceStats";
 import { ToastContext } from "../../context/ToastContext";
 import { deleteDocument, clearAllDocuments } from "../../services/api";
 
-export default function Sidebar({ files = [], setFiles, onNewChat, onSelectHistory }) {
+export default function Sidebar({ files = [], setFiles, onNewChat, onSelectHistory, sidebarOpen, setSidebarOpen }) {
   const [sidebarTab, setSidebarTab] = useState("conversations");
   const [searchQuery, setSearchQuery] = useState("");
   const { showToast } = useContext(ToastContext);
@@ -75,18 +75,41 @@ export default function Sidebar({ files = [], setFiles, onNewChat, onSelectHisto
   );
 
   return (
-    <aside className="w-[360px] bg-sidebar border-r border-border flex flex-col transition-colors duration-200 overflow-hidden shrink-0">
+    <>
+      {/* Backdrop overlay for mobile drawer */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 dark:bg-black/60 z-40 xl:hidden transition-opacity duration-200"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* Primary Action: New Conversation */}
-      <div className="p-4 border-b border-border/60">
-        <button
-          onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-black hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black font-semibold text-sm shadow-sm transition-all duration-150 active:scale-[0.99]"
-        >
-          <Plus size={18} strokeWidth={2.5} />
-          <span>New Conversation</span>
-        </button>
-      </div>
+      <aside className={`fixed inset-y-0 left-0 z-50 xl:relative xl:translate-x-0 w-[320px] sm:w-[360px] bg-sidebar border-r border-border flex flex-col transition-transform duration-300 ease-in-out overflow-hidden shrink-0 shadow-xl xl:shadow-none h-full ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      }`}>
+
+        {/* Primary Action: New Conversation */}
+        <div className="p-4 border-b border-border/60 flex items-center gap-2">
+          <button
+            onClick={() => {
+              onNewChat();
+              if (setSidebarOpen) setSidebarOpen(false);
+            }}
+            className="flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-black hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black font-semibold text-sm shadow-sm transition-all duration-150 active:scale-[0.99]"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            <span>New Conversation</span>
+          </button>
+
+          {/* Close Sidebar Button (Mobile/Tablet only) */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="xl:hidden p-2.5 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 transition"
+            title="Close Sidebar"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
       {/* Search Bar */}
       <div className="border-b border-border/60 p-4">
@@ -150,6 +173,7 @@ export default function Sidebar({ files = [], setFiles, onNewChat, onSelectHisto
               onSelectHistory={(item) => {
                 setSearchQuery("");
                 onSelectHistory(item);
+                if (setSidebarOpen) setSidebarOpen(false);
               }}
               searchQuery={searchQuery}
             />
@@ -265,6 +289,7 @@ export default function Sidebar({ files = [], setFiles, onNewChat, onSelectHisto
       )}
 
 
-    </aside>
+      </aside>
+    </>
   );
 }

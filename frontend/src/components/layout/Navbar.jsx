@@ -6,7 +6,8 @@ import {
   Settings,
   Trash2,
   Database,
-  Activity
+  Activity,
+  Menu,
 } from "lucide-react";
 
 import { useTheme } from "../../context/ThemeContext";
@@ -14,7 +15,7 @@ import { ChatHistoryContext } from "../../context/ChatHistoryContext";
 import { ToastContext } from "../../context/ToastContext";
 import api from "../../services/api";
 
-export default function Navbar({ onClearAllDocuments, filesCount }) {
+export default function Navbar({ onClearAllDocuments, filesCount, setSidebarOpen }) {
   const { theme, toggleTheme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { clearHistory } = useContext(ChatHistoryContext);
@@ -51,10 +52,20 @@ export default function Navbar({ onClearAllDocuments, filesCount }) {
       {/* Left Section */}
       <div className="flex items-center gap-3">
 
+        {/* Toggle Sidebar Button (Mobile/Tablet only) */}
+        <button
+          onClick={() => setSidebarOpen((prev) => !prev)}
+          className="xl:hidden w-9 h-9 rounded-lg border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center mr-1 shrink-0"
+          title="Toggle Sidebar"
+        >
+          <Menu size={18} />
+        </button>
+
         {/* Logo Icon Container */}
         <div className="w-9 h-9 rounded-xl bg-black dark:bg-white flex items-center justify-center shadow-sm">
           <FileText className="text-white dark:text-black" size={20} strokeWidth={2.2} />
         </div>
+
 
         {/* Title & Tagline */}
         <div>

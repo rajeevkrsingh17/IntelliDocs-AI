@@ -148,7 +148,7 @@ def _split_text_by_pages(text):
 # ------------------------------------------------
 
 
-def process_document(file_path):
+def process_document(file_path, session_id=None):
     """
     Extract text, create chunks, generate embeddings
     and store them inside ChromaDB.
@@ -164,7 +164,7 @@ def process_document(file_path):
     file_path = Path(file_path)
 
     print("\n" + "=" * 60)
-    print(f"Processing : {file_path.name}")
+    print(f"Processing : {file_path.name} | Session: {session_id}")
     print("=" * 60)
 
     # --------------------------------------------
@@ -232,7 +232,10 @@ def process_document(file_path):
 
     # Remove existing chunks for this document if re-uploaded
     try:
-        collection.delete(where={"document_name": file_path.name})
+        delete_clause = {"document_name": file_path.name}
+        if session_id:
+            delete_clause = {"$and": [{"document_name": file_path.name}, {"session_id": session_id}]}
+        collection.delete(where=delete_clause)
     except Exception:
         pass
 
@@ -248,15 +251,16 @@ def process_document(file_path):
             f"{file_path.stem}_chunk_{base_count + i}"
         )
 
-        metadatas.append(
-            {
-                "document_name": file_path.name,
-                "document_type": file_path.suffix.replace(".", "").upper(),
-                "chunk": i + 1,
-                "page": all_page_nums[i],
-                "upload_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        )
+        meta_entry = {
+            "document_name": file_path.name,
+            "document_type": file_path.suffix.replace(".", "").upper(),
+            "chunk": i + 1,
+            "page": all_page_nums[i],
+            "upload_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        if session_id:
+            meta_entry["session_id"] = session_id
+        metadatas.append(meta_entry)
 
     collection.add(
         ids=ids,
@@ -296,14 +300,15 @@ def process_document(file_path):
     return {"chunks": len(all_chunks), "pages": pages}
 
 
-def get_all_documents() -> list[dict]:
+def get_all_documents(session_id=None) -> list[dict]:
     """
-    Retrieves metadata of all documents currently indexed in ChromaDB.
+    Retrieves metadata of all documents currently indexed in ChromaDB for a specific session.
     Returns a list of dictionaries containing: name, type, chunks, pages, size.
     """
     try:
         collection = get_collection()
-        results = collection.get(include=["metadatas"])
+        where_clause = {"session_id": session_id} if session_id else None
+        results = collection.get(where=where_clause, include=["metadatas"])
         metadatas = results.get("metadatas", [])
         if not metadatas:
             return []
@@ -318,7 +323,7 @@ def get_all_documents() -> list[dict]:
                 doc_path = BASE_DIR / "data" / "uploads" / doc_name
                 size = 0
                 if doc_path.exists():
-                    size = doc_path.stat().st_size
+                     size = doc_path.stat().st_size
                 
                 doc_info[doc_name] = {
                     "name": doc_name,
@@ -337,13 +342,16 @@ def get_all_documents() -> list[dict]:
         return []
 
 
-def delete_document_from_db(document_name: str) -> bool:
+def delete_document_from_db(document_name: str, session_id=None) -> bool:
     """
-    Deletes all chunks belonging to a specific document from ChromaDB.
+    Deletes all chunks belonging to a specific document from ChromaDB for a specific session.
     """
     try:
         collection = get_collection()
-        collection.delete(where={"document_name": document_name})
+        delete_clause = {"document_name": document_name}
+        if session_id:
+            delete_clause = {"$and": [{"document_name": document_name}, {"session_id": session_id}]}
+        collection.delete(where=delete_clause)
         print(f"Deleted '{document_name}' from ChromaDB.")
         return True
     except Exception as e:
@@ -355,13 +363,21 @@ def delete_document_from_db(document_name: str) -> bool:
 # Backward Compatibility Wrappers for Streamlit
 # ------------------------------------------------
 
-def clear_database():
+def clear_database(session_id=None):
     """
-    Clears all collections from ChromaDB.
-    Deletes the entire ChromaDB directory on disk to ensure
-    no stale data persists from previous uploads.
+    Clears all collections from ChromaDB for a specific session.
     """
-    # First try to delete via the client API
+    if session_id:
+        try:
+            collection = get_collection()
+            collection.delete(where={"session_id": session_id})
+            print(f"Cleared database for session: {session_id}")
+            return
+        except Exception as e:
+            print(f"[WARN] Failed to clear collection by session ID: {e}")
+            return
+
+    # First try to delete via the client API (nuke whole DB if no session)
     try:
         client = chromadb.PersistentClient(path=str(DB_PATH))
         client.delete_collection("intellidocs")

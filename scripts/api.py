@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -86,12 +86,12 @@ def home():
 
 
 @app.get("/documents")
-def list_documents():
-    return get_all_documents()
+def list_documents(x_session_id: str | None = Header(None)):
+    return get_all_documents(session_id=x_session_id)
 
 
 @app.post("/upload")
-async def upload_documents(files: list[UploadFile] = File(...)):
+async def upload_documents(files: list[UploadFile] = File(...), x_session_id: str | None = Header(None)):
     uploaded = []
 
     for file in files:
@@ -114,7 +114,7 @@ async def upload_documents(files: list[UploadFile] = File(...)):
             buffer.write(content)
 
         # Process and index the document
-        result = process_document(save_path)
+        result = process_document(save_path, session_id=x_session_id)
 
         uploaded.append(
             {
@@ -133,7 +133,7 @@ async def upload_documents(files: list[UploadFile] = File(...)):
 
 
 @app.post("/query")
-def ask_question(request: QueryRequest):
+def ask_question(request: QueryRequest, x_session_id: str | None = Header(None)):
     if not request.question.strip():
         raise HTTPException(
             status_code=400,
@@ -144,6 +144,7 @@ def ask_question(request: QueryRequest):
         query=request.question,
         n_results=10,
         document_name=request.document_name,
+        session_id=x_session_id,
     )
 
     documents = retrieved["documents"]
@@ -202,7 +203,7 @@ def ask_question(request: QueryRequest):
 
 
 @app.post("/compare")
-def compare_documents(request: CompareRequest):
+def compare_documents(request: CompareRequest, x_session_id: str | None = Header(None)):
 
     if len(request.documents) < 2:
         raise HTTPException(
@@ -210,7 +211,7 @@ def compare_documents(request: CompareRequest):
             detail="Please select at least two documents.",
         )
 
-    docs = retrieve_multiple_documents(request.documents)
+    docs = retrieve_multiple_documents(request.documents, session_id=x_session_id)
 
     if len(docs) < 2:
         found_names = [d["name"] for d in docs]
@@ -235,8 +236,8 @@ def compare_documents(request: CompareRequest):
 
 
 @app.delete("/documents/{filename}")
-def delete_document(filename: str):
-    success = delete_document_from_db(filename)
+def delete_document(filename: str, x_session_id: str | None = Header(None)):
+    success = delete_document_from_db(filename, session_id=x_session_id)
     if not success:
         raise HTTPException(
             status_code=500,
@@ -249,8 +250,8 @@ def delete_document(filename: str):
 
 
 @app.post("/clear")
-def clear_all_documents():
-    clear_database()
+def clear_all_documents(x_session_id: str | None = Header(None)):
+    clear_database(session_id=x_session_id)
     return {
         "status": "success",
         "message": "All documents cleared from vector database.",

@@ -2,9 +2,26 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+// Persistent Session ID generator per browser/device
+function getSessionId() {
+  let sid = localStorage.getItem("intellidocs_session_id");
+  if (!sid) {
+    sid = "sess_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("intellidocs_session_id", sid);
+  }
+  return sid;
+}
+
 const api = axios.create({
   baseURL: API_URL,
 });
+
+// Attach X-Session-ID header to every request
+api.interceptors.request.use((config) => {
+  config.headers["X-Session-ID"] = getSessionId();
+  return config;
+});
+
 
 /**
  * Upload multiple documents.
