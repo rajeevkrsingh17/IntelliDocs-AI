@@ -26,42 +26,62 @@ api.interceptors.request.use((config) => {
 /**
  * Upload multiple documents.
  *
- * Supports:
- * - PDF
- * - DOCX
- * - TXT
- * - PPT
- * - PPTX
- * - MD
+ * Phase 1 — HTTP transfer: progress 0→99 (phase: "uploading")
+ * Phase 2 — Backend indexing: progress 0→99 (phase: "indexing")
+ * Done     — progress 100 (phase: "completed")
+ *
+ * onProgress receives: { phase: "uploading"|"indexing"|"completed", percent: 0-100 }
  */
 export async function uploadDocuments(files, onProgress = () => {}) {
   const formData = new FormData();
-
   files.forEach((file) => {
     formData.append("files", file);
   });
 
   try {
-    const response = await api.post("/upload", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-
+    // ── Phase 1: transfer bytes to server ──────────────────────────────────
+    const uploadRes = await api.post("/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (event) => {
         if (!event.total) return;
-
-        const progress = Math.round(
-          (event.loaded * 100) / event.total
-        );
-
-        onProgress(progress);
+        // Cap at 99 so the bar never shows 100% until indexing is also done
+        const pct = Math.min(99, Math.round((event.loaded * 100) / event.total));
+        onProgress({ phase: "uploading", percent: pct });
       },
     });
 
-    return response.data;
+    const { job_id } = uploadRes.data;
+
+    // ── Phase 2: poll the background indexing job ──────────────────────────
+    onProgress({ phase: "indexing", percent: 0 });
+
+    const POLL_INTERVAL_MS = 3000;   // poll every 3 s
+    const MAX_WAIT_MS = 10 * 60 * 1000; // give up after 10 minutes
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < MAX_WAIT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+      const statusRes = await api.get(`/upload/status/${job_id}`);
+      const data = statusRes.data;
+
+      if (data.status === "completed") {
+        onProgress({ phase: "completed", percent: 100 });
+        return data; // { status, uploaded, total_documents, progress }
+      }
+
+      // Still processing — report progress so the bar moves
+      onProgress({ phase: "indexing", percent: data.progress ?? 0 });
+    }
+
+    throw new Error(
+      "Document indexing is taking longer than expected. " +
+      "It will complete in the background — please refresh the Documents tab in a minute."
+    );
   } catch (error) {
     throw new Error(
       error.response?.data?.detail ||
+      error.message ||
       "Failed to upload documents."
     );
   }

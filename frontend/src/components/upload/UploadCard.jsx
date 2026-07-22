@@ -40,16 +40,24 @@ export default function UploadCard({ files = [], setFiles }) {
     setActiveUploads(initialUploadItems);
 
     try {
-      const response = await uploadDocuments(acceptedFiles, (progressEvent) => {
-        setOverallProgress(progressEvent);
-        setActiveUploads((prev) =>
-          prev.map((item) => ({
-            ...item,
-            progress: progressEvent,
-            status: progressEvent === 100 ? "indexing" : "uploading",
-          }))
-        );
-      });
+      const response = await uploadDocuments(
+        acceptedFiles,
+        ({ phase, percent }) => {
+          setOverallProgress(percent);
+          setActiveUploads((prev) =>
+            prev.map((item) => ({
+              ...item,
+              progress: percent,
+              status:
+                phase === "completed"
+                  ? "completed"
+                  : phase === "indexing"
+                  ? "indexing"
+                  : "uploading",
+            }))
+          );
+        }
+      );
 
       const uploaded = response.uploaded || [];
 
@@ -96,6 +104,7 @@ export default function UploadCard({ files = [], setFiles }) {
       }, 1500);
     }
   };
+
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {

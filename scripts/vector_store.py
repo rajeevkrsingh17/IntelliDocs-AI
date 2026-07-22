@@ -43,60 +43,52 @@ def get_embeddings(texts):
     if not gemini_client:
         raise ValueError("Gemini client not initialised. Check GEMINI_API_KEY.")
     
-    import concurrent.futures
     from google.genai import types
     import time
     
-    all_embeddings = [None] * len(texts)
+    all_embeddings = []
+    # 100 is the Gemini API max per call — so most small/medium docs = 1 request
+    batch_size = 100
     
-    def embed_batch(batch_index, batch_texts):
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i + batch_size]
         contents = [
             types.Content(role="user", parts=[types.Part.from_text(text=t)])
             for t in batch_texts
         ]
         
-        max_attempts = 5
+        # Sequential retry with gentle backoff — runs in background thread,
+        # so no HTTP timeout applies here.
+        max_attempts = 8
         for attempt in range(max_attempts):
             try:
                 response = gemini_client.models.embed_content(
                     model='gemini-embedding-001',
                     contents=contents,
                 )
-                return [e.values for e in response.embeddings]
+                all_embeddings.extend([e.values for e in response.embeddings])
+                break
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    wait = (attempt + 1) * 5 + (attempt ** 2) * 5  # 5s, 15s, 35s, 65s, 105s
-                    print(f"[Rate limit] Batch {batch_index+1} hit 429: waiting {wait}s before retry {attempt+1}/{max_attempts}...")
+                    wait = min(60, 5 * (attempt + 1))  # 5s, 10s, 15s … 60s
+                    print(f"[Rate limit] Batch {i//batch_size+1}: waiting {wait}s "
+                          f"(attempt {attempt+1}/{max_attempts})...")
                     time.sleep(wait)
                 else:
                     raise e
-        raise RuntimeError(
-            f"Embedding failed for batch {batch_index+1} after {max_attempts} retries (rate limit). "
-            f"Please wait a minute and try again, or upload a smaller document."
-        )
-
-    # Divide texts into batches of 100 (Gemini API batch limit)
-    batch_size = 100
-    batches = [(i // batch_size, texts[i:i + batch_size]) for i in range(0, len(texts), batch_size)]
-    
-    # Execute concurrently
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {
-            executor.submit(embed_batch, idx, batch): idx
-            for idx, batch in batches
-        }
-        for future in concurrent.futures.as_completed(futures):
-            idx = futures[future]
-            try:
-                batch_embeddings = future.result()
-                # Place embeddings in correct sequential position
-                start_pos = idx * batch_size
-                for offset, emb in enumerate(batch_embeddings):
-                    all_embeddings[start_pos + offset] = emb
-            except Exception as e:
-                raise e
-                
+        else:
+            raise RuntimeError(
+                f"Embedding batch {i//batch_size+1} failed after {max_attempts} retries. "
+                "The Gemini free-tier quota may be exhausted — please wait a few minutes and retry."
+            )
+        
+        # Small courtesy delay between multiple batches
+        if i + batch_size < len(texts):
+            time.sleep(1)
+            
     return all_embeddings
+
+
 
 # ------------------------------------------------
 # Chroma Collection

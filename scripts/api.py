@@ -1,5 +1,8 @@
 import sys
+import uuid
+import threading
 from pathlib import Path
+from typing import Dict, Any
 
 # Add root directory to sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,10 +34,15 @@ ALLOWED_EXTENSIONS = {
     ".md",
 }
 
+# ──────────────────────────────────────────────
+# In-memory job store for background uploads
+# ──────────────────────────────────────────────
+_upload_jobs: Dict[str, Dict[str, Any]] = {}
+
 app = FastAPI(
     title="IntelliDocs AI API",
     description="Multi-Document RAG using Gemini",
-    version="2.2.0",
+    version="2.3.0",
 )
 
 app.add_middleware(
@@ -92,9 +100,18 @@ def list_documents(x_session_id: str | None = Header(None)):
     return get_all_documents(session_id=x_session_id)
 
 
+# ──────────────────────────────────────────────
+# UPLOAD — saves files immediately, processes
+# in a background thread, returns a job_id.
+# This avoids Render's 30-second HTTP timeout.
+# ──────────────────────────────────────────────
+
 @app.post("/upload")
-async def upload_documents(files: list[UploadFile] = File(...), x_session_id: str | None = Header(None)):
-    uploaded = []
+async def upload_documents(
+    files: list[UploadFile] = File(...),
+    x_session_id: str | None = Header(None),
+):
+    saved: list[tuple[str, str, Path]] = []
 
     for file in files:
         if not file.filename:
@@ -110,27 +127,95 @@ async def upload_documents(files: list[UploadFile] = File(...), x_session_id: st
 
         save_path = UPLOAD_DIR / file.filename
 
-        # Read file content and save to disk
+        # Read and persist to disk immediately
         content = await file.read()
         with open(save_path, "wb") as buffer:
             buffer.write(content)
 
-        # Process and index the document
-        result = process_document(save_path, session_id=x_session_id)
+        saved.append((file.filename, extension, save_path))
 
-        uploaded.append(
-            {
-                "filename": file.filename,
-                "file_type": extension.replace(".", "").upper(),
-                "chunks": result["chunks"],
-                "pages": result["pages"],
-            }
+    if not saved:
+        raise HTTPException(status_code=400, detail="No valid files provided.")
+
+    # Create a job record
+    job_id = str(uuid.uuid4())
+    _upload_jobs[job_id] = {
+        "status": "processing",
+        "progress": 0,
+        "processed": 0,
+        "total": len(saved),
+        "uploaded": [],
+        "error": None,
+    }
+
+    # Capture session_id for the thread closure
+    session = x_session_id
+
+    def _process():
+        """Background worker — runs outside the HTTP request lifecycle."""
+        for idx, (filename, extension, save_path) in enumerate(saved):
+            try:
+                result = process_document(save_path, session_id=session)
+                _upload_jobs[job_id]["uploaded"].append(
+                    {
+                        "filename": filename,
+                        "file_type": extension.replace(".", "").upper(),
+                        "chunks": result["chunks"],
+                        "pages": result["pages"],
+                    }
+                )
+            except Exception as exc:
+                _upload_jobs[job_id]["status"] = "failed"
+                _upload_jobs[job_id]["error"] = str(exc)
+                return
+
+            _upload_jobs[job_id]["processed"] = idx + 1
+            _upload_jobs[job_id]["progress"] = int((idx + 1) / len(saved) * 100)
+
+        _upload_jobs[job_id]["status"] = "completed"
+
+    threading.Thread(target=_process, daemon=True).start()
+
+    # Return immediately — client must poll /upload/status/{job_id}
+    return {
+        "job_id": job_id,
+        "status": "processing",
+        "total": len(saved),
+    }
+
+
+@app.get("/upload/status/{job_id}")
+def get_upload_status(job_id: str):
+    """
+    Poll this endpoint after calling POST /upload.
+    Returns:
+      - {"status": "processing", "progress": 0-99, ...}
+      - {"status": "completed", "uploaded": [...], ...}
+      - HTTP 500 on processing failure
+    """
+    job = _upload_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    if job["status"] == "failed":
+        raise HTTPException(
+            status_code=500,
+            detail=job.get("error") or "Document processing failed.",
         )
 
+    if job["status"] == "completed":
+        return {
+            "status": "completed",
+            "uploaded": job["uploaded"],
+            "total_documents": len(job["uploaded"]),
+            "progress": 100,
+        }
+
     return {
-        "status": "success",
-        "uploaded": uploaded,
-        "total_documents": len(uploaded),
+        "status": "processing",
+        "progress": job["progress"],
+        "processed": job["processed"],
+        "total": job["total"],
     }
 
 
