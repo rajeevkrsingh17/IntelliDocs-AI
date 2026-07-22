@@ -87,34 +87,35 @@ export default function AnswerCard({
     <div className="bg-card rounded-2xl border border-border shadow-[0_2px_8px_rgba(0,0,0,0.02)] overflow-hidden transition-all duration-200 h-full flex flex-col">
 
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between border-b border-border px-6 py-4 bg-card shrink-0">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-card shrink-0 gap-4">
 
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-sm">
-            <Sparkles size={16} strokeWidth={2.2} />
+        {/* Left: Title & Badges */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-sm shrink-0">
+              <Sparkles size={16} strokeWidth={2.2} />
+            </div>
+            <h2 className="font-bold text-lg text-foreground whitespace-nowrap">
+              IntelliDocs Answer
+            </h2>
           </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-lg text-foreground">
-                IntelliDocs Answer
-              </h2>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
-                <ShieldCheck size={11} />
-                Verified Grounded
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-800 whitespace-nowrap">
+              <ShieldCheck size={11} />
+              Verified Grounded
+            </span>
+            {sources && sources.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-semibold border border-blue-200 dark:border-blue-800 whitespace-nowrap">
+                <Sparkles size={11} />
+                Synthesized from {sources.length} source{sources.length !== 1 ? 's' : ''}
               </span>
-              {sources && sources.length > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-semibold border border-blue-200 dark:border-blue-800">
-                  <Sparkles size={11} />
-                  Synthesized from {sources.length} source{sources.length !== 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Actions Toolbar */}
-        <div className="flex items-center gap-1">
+        {/* Right: Actions Toolbar */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           <button
             onClick={copyAnswer}
             disabled={!answer}
