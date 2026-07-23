@@ -165,6 +165,7 @@ pip install -r requirements.txt
 Create a `.env` file in the `scripts/` directory:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+VOYAGE_API_KEY=your_voyage_api_key_here
 GEMINI_MODEL=gemini-2.0-flash
 ```
 

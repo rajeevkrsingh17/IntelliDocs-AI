@@ -7,7 +7,7 @@ import chromadb
 import os
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from dotenv import load_dotenv
-import google.genai as genai
+import requests
 
 # Load .env
 ENV_PATH = Path(__file__).resolve().parent / ".env"
@@ -33,65 +33,63 @@ print(f"[DB] ChromaDB path: {DB_PATH} | Cloud mode: {_IS_CLOUD}")
 # Embedding Functions
 # ------------------------------------------------
 
-class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
+class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
     """
-    Custom ChromaDB Embedding Function that calls Google Gemini API.
-    Uses 'models/gemini-embedding-001' with 768 dimensions config.
+    Custom ChromaDB Embedding Function that calls Voyage AI API.
+    Uses 'voyage-4-lite' model with 512 dimensions.
     """
     def __init__(self, api_key: str):
-        self.client = genai.Client(api_key=api_key)
+        self.api_key = api_key
+        self.model = "voyage-4-lite"
+        self.url = "https://api.voyageai.com/v1/embeddings"
 
     def __call__(self, input: chromadb.Documents) -> chromadb.Embeddings:
         if not input:
             return []
         
-        import time
-        from google.genai import types
         embeddings = []
-        batch_size = 100
+        batch_size = 128  # Voyage AI supports up to 128 inputs per request
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
         for i in range(0, len(input), batch_size):
             batch = input[i:i + batch_size]
-            max_retries = 5
-            backoff_delay = 2.0
-            for attempt in range(max_retries):
-                try:
-                    response = self.client.models.embed_content(
-                        model="models/gemini-embedding-001",
-                        contents=batch,
-                        config=types.EmbedContentConfig(output_dimensionality=768),
-                    )
-                    for emb in response.embeddings:
-                        embeddings.append(emb.values)
-                    break
-                except Exception as e:
-                    error_str = str(e)
-                    is_rate_limit = any(k in error_str for k in ("429", "RESOURCE_EXHAUSTED", "rate_limit_exceeded"))
-                    
-                    if is_rate_limit and attempt < max_retries - 1:
-                        print(f"[WARN] Gemini embedding quota hit. Retrying in {backoff_delay}s (attempt {attempt + 1}/{max_retries})...")
-                        time.sleep(backoff_delay)
-                        backoff_delay *= 2
-                        continue
-                    else:
-                        print(f"[WARN] Gemini embedding API call failed: {e}")
-                        raise e
+            try:
+                response = requests.post(
+                    self.url,
+                    headers=headers,
+                    json={
+                        "input": batch,
+                        "model": self.model,
+                        "output_dimension": 512
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                sorted_data = sorted(data["data"], key=lambda x: x["index"])
+                for item in sorted_data:
+                    embeddings.append(item["embedding"])
+            except Exception as e:
+                print(f"[WARN] Voyage AI embedding API call failed: {e}")
+                raise e
         return embeddings
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
 
 # Initialize embedding functions
 _EF_ONNX = DefaultEmbeddingFunction()
-_EF_GEMINI = None
+_EF_VOYAGE = None
 _use_onnx_fallback = False
 
-if GEMINI_API_KEY:
+if VOYAGE_API_KEY:
     try:
-        _EF_GEMINI = GeminiEmbeddingFunction(api_key=GEMINI_API_KEY)
-        print("Gemini Cloud Embedding Function initialized (models/gemini-embedding-001, 768 dims).")
+        _EF_VOYAGE = VoyageEmbeddingFunction(api_key=VOYAGE_API_KEY)
+        print("Voyage Cloud Embedding Function initialized (voyage-4-lite, 512 dims).")
     except Exception as e:
-        print(f"[WARN] Failed to initialize Gemini Embedding Function: {e}")
+        print(f"[WARN] Failed to initialize Voyage Embedding Function: {e}")
 else:
-    print("[WARN] GEMINI_API_KEY not found. Using local ONNX embeddings.")
+    print("[WARN] VOYAGE_API_KEY not found. Using local ONNX embeddings.")
 
 # ------------------------------------------------
 # Chroma Collection
@@ -99,11 +97,11 @@ else:
 
 def get_collection():
     """
-    Returns the appropriate collection based on whether Gemini API is available and active.
+    Returns the appropriate collection based on whether Voyage API is available and active.
     """
     client = chromadb.PersistentClient(path=str(DB_PATH))
-    if _EF_GEMINI is not None and not _use_onnx_fallback:
-        return client.get_or_create_collection("intellidocs_gemini", embedding_function=_EF_GEMINI)
+    if _EF_VOYAGE is not None and not _use_onnx_fallback:
+        return client.get_or_create_collection("intellidocs_voyage", embedding_function=_EF_VOYAGE)
     else:
         return client.get_or_create_collection("intellidocs", embedding_function=_EF_ONNX)
 
