@@ -13,10 +13,16 @@ import google.genai as genai
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+def _clean_env_var(val: str | None) -> str | None:
+    if not val:
+        return None
+    cleaned = str(val).strip().replace("\n", "").replace("\r", "").replace("\t", "").strip()
+    return cleaned if cleaned else None
+
+GEMINI_API_KEY = _clean_env_var(os.getenv("GEMINI_API_KEY"))
 
 # Primary Gemini model from .env, fallback to gemini-3.1-flash-lite
-PRIMARY_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+PRIMARY_MODEL = _clean_env_var(os.getenv("GEMINI_MODEL")) or "gemini-3.1-flash-lite"
 
 # ============================================================
 # MODEL FALLBACK CHAIN

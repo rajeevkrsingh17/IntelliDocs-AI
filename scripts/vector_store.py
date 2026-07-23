@@ -33,13 +33,19 @@ print(f"[DB] ChromaDB path: {DB_PATH} | Cloud mode: {_IS_CLOUD}")
 # Embedding Functions
 # ------------------------------------------------
 
+def _clean_env_var(val: str | None) -> str | None:
+    if not val:
+        return None
+    cleaned = str(val).strip().replace("\n", "").replace("\r", "").replace("\t", "").strip()
+    return cleaned if cleaned else None
+
 class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
     """
     Custom ChromaDB Embedding Function that calls Voyage AI API.
     Uses 'voyage-4-lite' model with 512 dimensions.
     """
     def __init__(self, api_key: str):
-        self.api_key = api_key
+        self.api_key = _clean_env_var(api_key) or ""
         self.model = "voyage-4-lite"
         self.url = "https://api.voyageai.com/v1/embeddings"
 
@@ -49,8 +55,9 @@ class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
         
         embeddings = []
         batch_size = 128  # Voyage AI supports up to 128 inputs per request
+        clean_key = _clean_env_var(self.api_key) or ""
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {clean_key}",
             "Content-Type": "application/json"
         }
         for i in range(0, len(input), batch_size):
@@ -63,7 +70,8 @@ class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
                         "input": batch,
                         "model": self.model,
                         "output_dimension": 512
-                    }
+                    },
+                    timeout=10,
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -75,7 +83,7 @@ class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
                 raise e
         return embeddings
 
-VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
+VOYAGE_API_KEY = _clean_env_var(os.getenv("VOYAGE_API_KEY"))
 
 # Initialize embedding functions
 _EF_ONNX = DefaultEmbeddingFunction()
@@ -262,38 +270,34 @@ def process_document(file_path, session_id=None):
             metadatas=metadatas,
         )
     except Exception as exc:
-        exc_str = str(exc)
-        if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
-            print("[WARN] Gemini API exhausted during collection.add. Falling back to local ONNX...")
-            global _use_onnx_fallback
-            _use_onnx_fallback = True
-            
-            # Re-fetch the ONNX collection
-            collection = get_collection()
-            
-            # Re-calculate index for safety since collection changed
-            base_count = collection.count()
-            ids = []
-            for i in range(len(all_chunks)):
-                ids.append(f"{file_path.stem}_chunk_{base_count + i}")
-            
-            # Remove existing chunks for this document in the ONNX collection if re-uploaded
-            try:
-                delete_clause = {"document_name": file_path.name}
-                if session_id:
-                    delete_clause = {"$and": [{"document_name": file_path.name}, {"session_id": session_id}]}
-                collection.delete(where=delete_clause)
-            except Exception:
-                pass
-            
-            # Add to ONNX collection
-            collection.add(
-                ids=ids,
-                documents=all_chunks,
-                metadatas=metadatas,
-            )
-        else:
-            raise exc
+        print(f"[WARN] Embedding function failed ({exc}). Falling back to local ONNX embeddings...")
+        global _use_onnx_fallback
+        _use_onnx_fallback = True
+        
+        # Re-fetch the ONNX collection
+        collection = get_collection()
+        
+        # Re-calculate index for safety since collection changed
+        base_count = collection.count()
+        ids = []
+        for i in range(len(all_chunks)):
+            ids.append(f"{file_path.stem}_chunk_{base_count + i}")
+        
+        # Remove existing chunks for this document in the ONNX collection if re-uploaded
+        try:
+            delete_clause = {"document_name": file_path.name}
+            if session_id:
+                delete_clause = {"$and": [{"document_name": file_path.name}, {"session_id": session_id}]}
+            collection.delete(where=delete_clause)
+        except Exception:
+            pass
+        
+        # Add to ONNX collection
+        collection.add(
+            ids=ids,
+            documents=all_chunks,
+            metadatas=metadatas,
+        )
 
     print(f"Added {len(all_chunks)} chunks.")
 

@@ -40,3 +40,14 @@ def test_voyage_embedding_dimension():
     except Exception as e:
         raise e
 
+
+def test_voyage_embedding_sanitization():
+    """
+    Test that VoyageEmbeddingFunction strips leading/trailing newlines and carriage returns.
+    """
+    raw_key = "  pa-testkey123456789\n\r  "
+    ef = VoyageEmbeddingFunction(api_key=raw_key)
+    assert ef.api_key == "pa-testkey123456789"
+    assert "\n" not in ef.api_key
+    assert "\r" not in ef.api_key
+
