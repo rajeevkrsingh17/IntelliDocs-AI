@@ -4,28 +4,67 @@
 
 ---
 
-### **TITLE:** 
-**IntelliDocs-AI: Resilient, Hybrid RAG Platform**
+### **TITLE:**
+**IntelliDocs-AI: Resilient, Hybrid RAG Document Q&A**
 
-### **SUBTITLE:** 
-*Chat with your PDFs without hallucination.*
-
-### **THE PROBLEM:**
-Standard LLMs hallucinate when asked about proprietary documents. Basic RAG systems fail when asked for exact keywords (e.g., "Error code 404X") and often crash under rate limits or memory constraints in production.
-
-### **THE SOLUTION:**
-An end-to-end Document Q&A platform featuring:
-1. **Hybrid Search Engine:** Combines ChromaDB (semantic meaning) with Rank-BM25 (exact keyword matching) using Reciprocal Rank Fusion ($k=60$).
-2. **Resilient Cascade:** Automatically fails over across Gemini model tiers (`3.1-flash-lite` → `2.0-flash` → `mock`) to guarantee 100% uptime during API rate limits.
-3. **Optimized Infrastructure:** Migrated from local PyTorch models to Gemini Embeddings to successfully deploy within a strict 512MB RAM constraint on Render.
-
-### **THE TECH STACK:**
-- **Frontend:** React 19 + Vite + TailwindCSS (Deployed on Vercel)
-- **Backend:** FastAPI + Uvicorn (Deployed on Render)
-- **AI/Data:** PyMuPDF, ChromaDB, Rank-BM25, Google Gemini API
-
-### **KEY METRIC / HIGHLIGHT:**
-*Reduced backend memory footprint from ~800MB to ~150MB, allowing seamless deployment on free-tier cloud infrastructure while maintaining hybrid search accuracy.*
+### **SUBTITLE:**
+*Ask your PDFs anything. Get grounded answers with page citations — not hallucinations.*
 
 ---
-*(Note: Add a screenshot of your React UI on the right side of the slide, and perhaps a small graphic of your architecture diagram!)*
+
+### **THE PROBLEM:**
+Standard LLMs hallucinate when asked about proprietary documents. Basic RAG systems fail at exact keyword searches ("Error code 404X") and crash in production under memory constraints or API rate limits.
+
+---
+
+### **THE SOLUTION:**
+An end-to-end Document Q&A platform with:
+
+1. **Hybrid Search Engine**
+   - ChromaDB (semantic meaning) + Rank-BM25 (exact keywords)
+   - Fused via Reciprocal Rank Fusion (k=60) for best-of-both-worlds retrieval
+
+2. **Resilient LLM Cascade**
+   - Auto-fails over across Gemini model tiers on 429 rate limits
+   - `gemini-2.0-flash` → `gemini-1.5-flash` → offline mock
+   - 100% uptime even when primary API is quota-exhausted
+
+3. **Production Deployment**
+   - Migrated from local PyTorch (~800MB RAM) → Gemini Embeddings API (~150MB)
+   - Enables free-tier cloud hosting on Render within 512MB constraint
+
+4. **Multi-Document Comparison Engine**
+   - Side-by-side analysis across multiple PDFs
+   - 4 modes: Summary · Similarities · Detailed · Custom prompt
+
+---
+
+### **TECH STACK:**
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19 + Vite (Vercel) |
+| Backend | FastAPI + Uvicorn (Render) |
+| PDF Parsing | PyMuPDF (`fitz`) |
+| Embeddings | Google Gemini `gemini-embedding-001` |
+| Vector DB | ChromaDB (HNSW) |
+| Sparse Index | Rank-BM25 |
+| LLM | Google Gemini (multi-tier cascade) |
+| Testing | Pytest (10 tests passed) |
+
+---
+
+### **LIVE LINKS:**
+
+- 🌐 **Frontend:** https://intellidocs-ai-tau.vercel.app
+- ⚙️ **Backend:** https://intellidocs-api-yedx.onrender.com
+- 🎬 **Loom Demo:** https://www.loom.com/share/a103a99f1ece4e61bd1b851023f6724f
+
+---
+
+### **KEY ACHIEVEMENT:**
+*Reduced backend memory footprint from ~800MB to ~150MB, enabling production deployment on free-tier cloud while maintaining full hybrid search accuracy with page-level source citations.*
+
+---
+
+> **Slide design tip:** Place a screenshot of the React UI on the right half, and the architecture diagram in the bottom-left corner.

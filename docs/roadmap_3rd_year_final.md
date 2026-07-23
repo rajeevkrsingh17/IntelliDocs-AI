@@ -1,4 +1,4 @@
-# IntelliDocs-AI — 3rd Year Extension Roadmap
+# IntelliDocs-AI — 3rd Year Extension Roadmap (Final)
 
 ## What this project is today (2-3 lines)
 IntelliDocs-AI is an end-to-end RAG system capable of ingesting multiple document formats (PDF, DOCX, PPTX, MD, and TXT) and answering questions using a hybrid search mechanism (ChromaDB + Rank-BM25). It uses Google Gemini embeddings and a tiered Gemini LLM cascade (starting with primary model `gemini-3.1-flash-lite`) to guarantee resilience even under rate limits, deployed on Render (Backend) and Vercel (Frontend).

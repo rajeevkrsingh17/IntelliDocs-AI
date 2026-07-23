@@ -159,15 +159,37 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         where_clause = {"$and": conditions}
 
     # 1. DENSE VECTOR SEARCH
-    # ChromaDB embeds the query internally using ONNX — no API call!
     vector_n = min(30, total_chunks)
 
-    vector_results = collection.query(
-        query_texts=[query],          # ChromaDB calls _EF([query]) internally
-        n_results=vector_n,
-        where=where_clause,
-        include=["documents", "metadatas"],
-    )
+    try:
+        vector_results = collection.query(
+            query_texts=[query],          # ChromaDB calls _EF([query]) internally
+            n_results=vector_n,
+            where=where_clause,
+            include=["documents", "metadatas"],
+        )
+    except Exception as exc:
+        exc_str = str(exc)
+        if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
+            print("[WARN] Gemini API exhausted during query. Falling back to local ONNX search...")
+            import scripts.vector_store
+            scripts.vector_store._use_onnx_fallback = True
+            
+            # Re-fetch the ONNX collection and update variables
+            collection = get_collection()
+            total_chunks = collection.count()
+            if total_chunks == 0:
+                return {"documents": [], "metadata": []}
+            
+            vector_n = min(30, total_chunks)
+            vector_results = collection.query(
+                query_texts=[query],
+                n_results=vector_n,
+                where=where_clause,
+                include=["documents", "metadatas"],
+            )
+        else:
+            raise exc
 
     vec_ids = vector_results.get("ids", [[]])[0]
     vec_docs = vector_results.get("documents", [[]])[0]

@@ -31,7 +31,7 @@
 | 2 | **README.md (12-Section Standard)** | ✅ Done | Full README with all mandatory sections in [`README.md`](../README.md) |
 | 3 | **Architecture diagram** | ✅ Done | PNG + Mermaid in [`docs/architecture_diagram.png`](architecture_diagram.png) |
 | 4 | **Demo video (3-5 min Loom)** | ✅ Done | [▶️ Loom Walkthrough](https://www.loom.com/share/a103a99f1ece4e61bd1b851023f6724f) |
-| 5 | **At least 1 passing test** | ✅ Done | 10 tests passing across 8 suites in `/tests/` via Pytest |
+| 5 | **At least 1 passing test** | ✅ Done | 12 tests passing across 8 suites in `/tests/` via Pytest |
 | 6 | **ADR set (3 minimum)** | ✅ Done (4 ADRs) | [`docs/adr/`](adr/) — ADR-001 through ADR-004 finalised |
 | 7 | **Live deployment URL** | ✅ Done | Frontend: Vercel · Backend: Render (both live) |
 | 8 | **Mini-extension shipped** | ✅ Done | Multi-Document Comparison Engine + LLM Fallback Cascade |
@@ -62,14 +62,14 @@
 | 11 | **Resume Bullets** | ✅ Done | [`docs/resume_bullets.md`](resume_bullets.md) |
 | 12 | **5 Mock Interview Q&A Pairs** | ✅ Done | [`docs/mock_interview.md`](mock_interview.md) |
 | 13 | **Postmortem (Bonus)** | ✅ Done | [`docs/postmortem.md`](postmortem.md) — OOM bug & embedding migration |
-| 14 | **GitHub Release `v1.0-final`** | 🟡 Pending | Ready to tag on main branch |
+| 14 | **GitHub Release `v1.0-final`** | ✅ Done | Tagged on main branch |
 
 ---
 
 ## 📝 Resume Bullets Draft
 
-- **Engineered an end-to-end RAG Document Q&A platform** using Python, PyMuPDF, Google Gemini API (`gemini-embedding-001`), ChromaDB, and Rank-BM25, enabling hybrid semantic + keyword search over PDF documents with chunk-level page citations deployed on Vercel + Render.
-- **Implemented Reciprocal Rank Fusion (RRF k=60) & resilient LLM fallback architecture** cascading across Google Gemini model tiers (`gemini-2.0-flash` → `gemini-1.5-flash` → offline mock) with automated retry logic, achieving 100% API uptime under rate-limit spikes.
+- **Engineered an end-to-end RAG Document Q&A platform** using Python, PyMuPDF, `python-docx`, `python-pptx`, Google Gemini API (`gemini-embedding-001`), ChromaDB, and Rank-BM25, enabling hybrid semantic + keyword search over multi-format documents (PDF, DOCX, PPTX, MD, TXT) with chunk-level page citations deployed on Vercel + Render.
+- **Implemented Reciprocal Rank Fusion (RRF $k=60$) & resilient LLM fallback architecture** cascading across Google Gemini model tiers (`gemini-3.1-flash-lite` → `gemini-2.0-flash` → `gemini-1.5-flash` → offline mock) with automated retry logic, achieving 100% API uptime under rate-limit spikes.
 - **Built a multi-document comparative analysis engine & dual frontend** (Streamlit + React/Vite) backed by a FastAPI REST API, supporting side-by-side cross-document comparison across 4 analysis modes (summary, similarities, detailed, custom).
 
 ---
@@ -78,7 +78,7 @@
 
 | Layer | Technology | Role |
 |-------|-----------|------|
-| **Ingestion** | PyMuPDF + Recursive Chunker | PDF parsing, table extraction, 500-char / 50-overlap segmentation |
+| **Ingestion** | PyMuPDF + python-docx + python-pptx | Multi-format parsing (PDF, DOCX, PPTX, MD, TXT), table extraction (PDFs), 500-char / 50-overlap segmentation |
 | **Embeddings** | `gemini-embedding-001` (API) | 768-dim dense vector generation (migrated from local SentenceTransformers to fit Render RAM) |
 | **Vector Store** | ChromaDB (HNSW) | Persistent local vector index with metadata filtering |
 | **Sparse Index** | Rank-BM25 | Exact keyword retrieval for numeric IDs / acronyms |

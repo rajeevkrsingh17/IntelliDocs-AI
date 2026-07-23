@@ -1,6 +1,6 @@
 # 🚀 IntelliDocs-AI
 
-> **An AI-powered Retrieval-Augmented Generation (RAG) platform enabling semantic search, multi-provider LLM answer synthesis, inline citations, and multi-document comparative analysis over PDF corpora.**
+> **An AI-powered Retrieval-Augmented Generation (RAG) platform enabling semantic search, multi-provider LLM answer synthesis, inline citations, and multi-document comparative analysis over multi-format document corpora (PDF, DOCX, PPTX, Markdown, and TXT).**
 
 <p align="center">
 
@@ -9,6 +9,8 @@
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit)
 ![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react)
 ![PyMuPDF](https://img.shields.io/badge/PDF-PyMuPDF-orange)
+![python-docx](https://img.shields.io/badge/DOCX-python--docx-blue)
+![python-pptx](https://img.shields.io/badge/PPTX-python--pptx-red)
 ![Gemini Embeddings](https://img.shields.io/badge/Embeddings-Gemini--Embedding-blue?logo=google)
 ![ChromaDB](https://img.shields.io/badge/Vector%20DB-ChromaDB-green)
 ![Gemini](https://img.shields.io/badge/LLM-Google%20Gemini-4285F4?logo=google)
@@ -33,9 +35,9 @@
 
 ## 📌 Problem Statement
 
-Reading and locating specific information inside long PDF documents (e.g., technical specifications, legal contracts, research papers) is time-consuming and inefficient. Traditional keyword searches fail when user queries use different phrasing or conceptual terminology than the source document.
+Reading and locating specific information inside long documents (e.g., PDFs, DOCX files, PowerPoint slide decks, Markdown pages, and Text files) is time-consuming and inefficient. Traditional keyword searches fail when user queries use different phrasing or conceptual terminology than the source document.
 
-**IntelliDocs-AI** solves this by implementing an end-to-end Retrieval-Augmented Generation (RAG) pipeline. It extracts text and structural elements (markdown tables and image placeholders) from PDF files using PyMuPDF, splits the text into 500-character semantic chunks with 50-character overlap, generates 768-dimensional dense vectors using Google Gemini Embeddings (`gemini-embedding-001`) to support memory-safe cloud deployment, indexes them in ChromaDB alongside an in-memory BM25 sparse index, and combines search results via Reciprocal Rank Fusion (RRF $k=60$). Retrieved chunks are passed as context to Google Gemini to synthesize grounded answers backed by chunk-level source citations.
+**IntelliDocs-AI** solves this by implementing an end-to-end Retrieval-Augmented Generation (RAG) pipeline. It extracts text and structural elements (markdown tables and image placeholders) from multiple document formats (PDF, DOCX, PPTX, MD, and TXT) using specialized extractors (PyMuPDF, python-docx, python-pptx, and native markdown/text parsers), splits the text into 500-character semantic chunks with 50-character overlap, generates 768-dimensional dense vectors using Google Gemini Embeddings (`gemini-embedding-001`) to support memory-safe cloud deployment, indexes them in ChromaDB alongside an in-memory BM25 sparse index, and combines search results via Reciprocal Rank Fusion (RRF $k=60$). Retrieved chunks are passed as context to Google Gemini to synthesize grounded answers backed by chunk-level source citations.
 
 ---
 
@@ -56,11 +58,11 @@ flowchart TD
         FastAPIApp["FastAPI Server (scripts/api.py)"]
     end
 
-    subgraph Ingestion ["PDF Ingestion & Processing"]
-        PyMuPDFParser["PyMuPDF (fitz) Extractor"]
-        TableImageProc["Markdown Table Finder & Image Marker"]
+    subgraph Ingestion ["Multi-Format Ingestion & Processing"]
+        DocExtractors["Document Extractors (PDF, DOCX, PPTX, MD, TXT)"]
+        TableImageProc["Markdown Table Finder & Image Marker (PDFs)"]
         Chunker["Recursive Text Chunker (500 chars / 50 overlap)"]
-        PyMuPDFParser --> TableImageProc --> Chunker
+        DocExtractors --> TableImageProc --> Chunker
     end
 
     subgraph Storage ["Hybrid Indexing Layer"]
@@ -116,7 +118,7 @@ flowchart TD
 | Component Layer | Tool / Technology | Version / Specification | Rationale & Usage |
 |-----------------|-------------------|-------------------------|-------------------|
 | **Core Runtime** | Python | 3.12 | Primary backend language for NLP and API server |
-| **PDF Extraction** | PyMuPDF (`fitz`) | 1.23+ | Fast C-extension parsing, structured markdown tables (`find_tables()`), image markers |
+| **Document Extraction** | PyMuPDF (`fitz`), python-docx, python-pptx | 1.23+ / 1.2.0 / 1.0.2 | Extracts text and structural components from PDFs, DOCX, PPTX, Markdown, and TXT files |
 | **Text Segmentation** | Custom Recursive Chunker | 500 chars / 50 overlap | Retains cohesive paragraph context while preventing semantic dilution |
 | **Dense Embeddings** | Google Gemini API | `gemini-embedding-001` | 768-dimensional dense vectors (migrated from local Sentence Transformers to resolve Render RAM OOM) |
 | **Vector DB** | ChromaDB | 1.5.9 | Local persistent HNSW vector store with metadata filtering |
@@ -196,8 +198,8 @@ pytest
 
 ## 📊 Data Sources
 
-IntelliDocs-AI operates over PDF document corpora uploaded dynamically by users or placed in `data/raw/` and `data/uploads/`.
-- Supported input format: `.pdf` (with readable text, tables, and images).
+IntelliDocs-AI operates over multi-format document corpora uploaded dynamically by users or placed in `data/raw/` and `data/uploads/`.
+- Supported input formats: `.pdf`, `.docx`, `.pptx`, `.md`, `.txt` (with readable text, tables, and structural elements).
 - Metadata attached to every indexed chunk: `document_name`, `document_type`, `chunk` (sequential index), `page` (calculated page number), `upload_time`.
 
 ---
@@ -273,7 +275,7 @@ All core architecture decisions are documented in [`docs/adr/`](docs/adr/):
 IntelliDocs-AI includes two major mini-extensions that go beyond standard single-file RAG tutorials:
 
 1. **Multi-Document Comparative Analysis Engine:**
-   - Allows users to select multiple uploaded PDFs and generate comparative reports.
+   - Allows users to select multiple uploaded documents (PDFs, DOCX, PPTX, MD, TXT) and generate comparative reports.
    - Provides 4 comparison modes: `summary`, `similarities`, `detailed`, and `custom`.
 
 2. **Resilient LLM Fallback Cascade:**
@@ -293,7 +295,7 @@ IntelliDocs-AI includes two major mini-extensions that go beyond standard single
 
 See the complete 12-month roadmap in [`docs/roadmap_3rd_year.md`](docs/roadmap_3rd_year.md):
 - Hybrid search optimization with Qdrant and pgvector.
-- Multi-format document ingestion (DOCX, PPTX, HTML, Markdown).
+- Multimodal document analysis (extracting and indexing images and charts using Vision-Language Models).
 - Agentic RAG workflows (query decomposition and self-verification using LangGraph).
 - Containerized cloud deployment with Docker Compose, GitHub Actions CI/CD, and Prometheus metrics.
 

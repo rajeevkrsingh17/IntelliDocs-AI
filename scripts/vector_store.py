@@ -82,6 +82,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Initialize embedding functions
 _EF_ONNX = DefaultEmbeddingFunction()
 _EF_GEMINI = None
+_use_onnx_fallback = False
 
 if GEMINI_API_KEY:
     try:
@@ -98,10 +99,10 @@ else:
 
 def get_collection():
     """
-    Returns the appropriate collection based on whether Gemini API is available.
+    Returns the appropriate collection based on whether Gemini API is available and active.
     """
     client = chromadb.PersistentClient(path=str(DB_PATH))
-    if _EF_GEMINI is not None:
+    if _EF_GEMINI is not None and not _use_onnx_fallback:
         return client.get_or_create_collection("intellidocs_gemini", embedding_function=_EF_GEMINI)
     else:
         return client.get_or_create_collection("intellidocs", embedding_function=_EF_ONNX)
@@ -255,12 +256,46 @@ def process_document(file_path, session_id=None):
             meta_entry["session_id"] = session_id
         metadatas.append(meta_entry)
 
-    # ChromaDB calls _EF(all_chunks) internally — pure ONNX, no network call
-    collection.add(
-        ids=ids,
-        documents=all_chunks,
-        metadatas=metadatas,
-    )
+    # ChromaDB calls _EF(all_chunks) internally — runs Gemini or ONNX depending on config
+    try:
+        collection.add(
+            ids=ids,
+            documents=all_chunks,
+            metadatas=metadatas,
+        )
+    except Exception as exc:
+        exc_str = str(exc)
+        if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
+            print("[WARN] Gemini API exhausted during collection.add. Falling back to local ONNX...")
+            global _use_onnx_fallback
+            _use_onnx_fallback = True
+            
+            # Re-fetch the ONNX collection
+            collection = get_collection()
+            
+            # Re-calculate index for safety since collection changed
+            base_count = collection.count()
+            ids = []
+            for i in range(len(all_chunks)):
+                ids.append(f"{file_path.stem}_chunk_{base_count + i}")
+            
+            # Remove existing chunks for this document in the ONNX collection if re-uploaded
+            try:
+                delete_clause = {"document_name": file_path.name}
+                if session_id:
+                    delete_clause = {"$and": [{"document_name": file_path.name}, {"session_id": session_id}]}
+                collection.delete(where=delete_clause)
+            except Exception:
+                pass
+            
+            # Add to ONNX collection
+            collection.add(
+                ids=ids,
+                documents=all_chunks,
+                metadatas=metadatas,
+            )
+        else:
+            raise exc
 
     print(f"Added {len(all_chunks)} chunks.")
 
