@@ -39,16 +39,16 @@ def _clean_env_var(val: str | None) -> str | None:
     cleaned = str(val).strip().replace("\n", "").replace("\r", "").replace("\t", "").strip()
     return cleaned if cleaned else None
 
-class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
+class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
     """
-    Custom ChromaDB Embedding Function that calls Voyage AI API.
-    Uses 'voyage-4-lite' model with 512 dimensions.
-    Sends batched requests (max 128 texts per batch) with exponential backoff retries.
+    Custom ChromaDB Embedding Function that calls Google Gemini API.
+    Uses 'models/gemini-embedding-001' model with 3072 dimensions.
+    Sends batched requests (max 100 texts per batch) with exponential backoff retries (2s, 4s, 8s).
     """
     def __init__(self, api_key: str):
         self.api_key = _clean_env_var(api_key) or ""
-        self.model = "voyage-4-lite"
-        self.url = "https://api.voyageai.com/v1/embeddings"
+        self.model = "models/gemini-embedding-001"
+        self.url = f"https://generativelanguage.googleapis.com/v1beta/{self.model}:batchEmbedContents"
 
     def __call__(self, input: chromadb.Documents) -> chromadb.Embeddings:
         if not input:
@@ -56,79 +56,83 @@ class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
         
         clean_key = _clean_env_var(self.api_key) or ""
         if not clean_key:
-            raise RuntimeError("Embedding service temporarily unavailable, please try again")
-
-        headers = {
-            "Authorization": f"Bearer {clean_key}",
-            "Content-Type": "application/json"
-        }
+            raise RuntimeError("Embedding failed, please try again")
 
         embeddings = []
-        batch_size = 128  # Voyage AI limit is 128 inputs per HTTP POST
-        max_retries = 5
+        batch_size = 30  # Batch 30 chunks per request to safely stay under TPM rate limits
+        max_retries = 3
 
         for i in range(0, len(input), batch_size):
             batch = input[i:i + batch_size]
             
-            # Small delay between consecutive batch requests to respect rate limits
+            # Delay between consecutive batch requests to safely respect free-tier rate limits
             if i > 0:
-                time.sleep(0.5)
+                time.sleep(1.0)
 
             batch_success = False
+            requests_payload = [
+                {
+                    "model": self.model,
+                    "content": {"parts": [{"text": text}]}
+                }
+                for text in batch
+            ]
+
             for attempt in range(max_retries):
                 try:
                     response = requests.post(
-                        self.url,
-                        headers=headers,
-                        json={
-                            "input": batch,
-                            "model": self.model,
-                            "output_dimension": 512
-                        },
+                        f"{self.url}?key={clean_key}",
+                        headers={"Content-Type": "application/json"},
+                        json={"requests": requests_payload},
                         timeout=30,
                     )
                     
-                    if response.status_code == 429:
+                    if response.status_code in (429, 500, 502, 503, 504):
+                        wait_time = 2 ** (attempt + 1)
                         retry_after = response.headers.get("Retry-After")
-                        wait_time = float(retry_after) if retry_after else (2 ** (attempt + 1))
-                        print(f"[WARN] Voyage AI 429 Rate Limit (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.1f}s...")
+                        if retry_after:
+                            try:
+                                wait_time = float(retry_after)
+                            except ValueError:
+                                pass
+                        print(f"[WARN] Gemini Embedding HTTP {response.status_code} (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.1f}s...")
                         time.sleep(wait_time)
                         continue
 
                     response.raise_for_status()
                     data = response.json()
-                    sorted_data = sorted(data["data"], key=lambda x: x["index"])
-                    for item in sorted_data:
-                        embeddings.append(item["embedding"])
+                    raw_embeddings = data.get("embeddings", [])
+                    for item in raw_embeddings:
+                        embeddings.append(item["values"])
                     batch_success = True
                     break
 
                 except requests.exceptions.RequestException as e:
-                    print(f"[WARN] Voyage AI embedding attempt {attempt + 1}/{max_retries} failed: {e}")
+                    print(f"[WARN] Gemini embedding attempt {attempt + 1}/{max_retries} failed: {e}")
                     if attempt < max_retries - 1:
-                        time.sleep(2 * (attempt + 1))
+                        time.sleep(2 ** (attempt + 1))
                     else:
                         break
 
             if not batch_success:
-                print(f"[ERROR] Voyage AI batch embedding failed after {max_retries} attempts.")
-                raise RuntimeError("Embedding service temporarily unavailable, please try again")
+                print(f"[ERROR] Gemini batch embedding failed after {max_retries} attempts.")
+                raise RuntimeError("Embedding failed, please try again")
 
         return embeddings
 
-VOYAGE_API_KEY = _clean_env_var(os.getenv("VOYAGE_API_KEY"))
+GEMINI_API_KEY = _clean_env_var(os.getenv("GEMINI_API_KEY"))
 
 # Initialize embedding function
-_EF_VOYAGE = None
+_EF_GEMINI = None
 
-if VOYAGE_API_KEY:
+if GEMINI_API_KEY:
     try:
-        _EF_VOYAGE = VoyageEmbeddingFunction(api_key=VOYAGE_API_KEY)
-        print("Voyage Cloud Embedding Function initialized (voyage-4-lite, 512 dims).")
+        _EF_GEMINI = GeminiEmbeddingFunction(api_key=GEMINI_API_KEY)
+        print("Gemini Cloud Embedding Function initialized (gemini-embedding-001, 3072 dims).")
     except Exception as e:
-        print(f"[WARN] Failed to initialize Voyage Embedding Function: {e}")
+        print(f"[WARN] Failed to initialize Gemini Embedding Function: {e}")
 else:
-    print("[WARN] VOYAGE_API_KEY not set.")
+    print("[WARN] GEMINI_API_KEY not set.")
 
 # ------------------------------------------------
 # Chroma Collection
@@ -136,12 +140,12 @@ else:
 
 def get_collection():
     """
-    Returns the ChromaDB collection configured with Voyage AI embeddings.
+    Returns the ChromaDB collection configured with Gemini embeddings.
     """
     client = chromadb.PersistentClient(path=str(DB_PATH))
-    if _EF_VOYAGE is None:
-        raise RuntimeError("Embedding service temporarily unavailable, please try again")
-    return client.get_or_create_collection("intellidocs_voyage", embedding_function=_EF_VOYAGE)
+    if _EF_GEMINI is None:
+        raise RuntimeError("Embedding failed, please try again")
+    return client.get_or_create_collection("intellidocs_gemini", embedding_function=_EF_GEMINI)
 
 
 
@@ -292,7 +296,7 @@ def process_document(file_path, session_id=None):
             meta_entry["session_id"] = session_id
         metadatas.append(meta_entry)
 
-    # ChromaDB calls _EF_VOYAGE(all_chunks) internally (batched up to 128 chunks per API call)
+    # ChromaDB calls _EF_GEMINI(all_chunks) internally (batched up to 100 chunks per API call)
     try:
         collection.add(
             ids=ids,
@@ -301,9 +305,9 @@ def process_document(file_path, session_id=None):
         )
     except Exception as exc:
         print(f"[ERROR] Failed to store document chunks: {exc}")
-        if "temporarily unavailable" in str(exc):
+        if "Embedding failed" in str(exc):
             raise exc
-        raise RuntimeError("Embedding service temporarily unavailable, please try again") from exc
+        raise RuntimeError("Embedding failed, please try again") from exc
 
     print(f"Added {len(all_chunks)} chunks.")
 

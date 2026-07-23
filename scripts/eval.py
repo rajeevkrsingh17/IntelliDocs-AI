@@ -63,7 +63,7 @@ TEST_CASES = [
         "id": 7,
         "category": "Embeddings & Vector Database",
         "question": "What embedding models does the project specification list as acceptable?",
-        "expected": "OpenAI, Voyage, or open-source models (BGE, E5, Nomic).",
+        "expected": "Google Gemini (text-embedding-004).",
         "is_guardrail": False,
     },
     {

@@ -14,4 +14,4 @@ def test_vector_store_collection():
     """
     collection = get_collection()
     assert collection is not None
-    assert collection.name == "intellidocs_voyage"
+    assert collection.name == "intellidocs_gemini"

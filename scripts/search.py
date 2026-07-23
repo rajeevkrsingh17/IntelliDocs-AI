@@ -5,7 +5,6 @@ from collections import OrderedDict
 
 import chromadb
 import os
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from dotenv import load_dotenv
 
 # Load .env
@@ -17,8 +16,6 @@ load_dotenv(dotenv_path=ENV_PATH)
 # ------------------------------------------------
 
 from scripts.vector_store import get_collection
-
-
 
 
 # ------------------------------------------------
@@ -121,7 +118,7 @@ _BM25_CACHE = LRUCache(maxsize=10)
 def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id=None):
     """
     Retrieve the most relevant chunks using Hybrid Search (BM25 + Dense vector similarity).
-    Dense search uses ChromaDB's built-in ONNX embedding — no Gemini API call needed.
+    Dense search uses Gemini embeddings (text-embedding-004).
     Results are merged using Reciprocal Rank Fusion (RRF).
     """
 
@@ -170,9 +167,9 @@ def retrieve_relevant_chunks(query, n_results=10, document_name=None, session_id
         )
     except Exception as exc:
         print(f"[ERROR] Vector search query failed: {exc}")
-        if "temporarily unavailable" in str(exc):
+        if "Embedding failed" in str(exc):
             raise exc
-        raise RuntimeError("Embedding service temporarily unavailable, please try again") from exc
+        raise RuntimeError("Embedding failed, please try again") from exc
 
     vec_ids = vector_results.get("ids", [[]])[0]
     vec_docs = vector_results.get("documents", [[]])[0]

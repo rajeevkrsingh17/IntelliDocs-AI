@@ -37,7 +37,7 @@ def test_bm25_cache_hits():
     from search import retrieve_relevant_chunks, _BM25_CACHE, get_collection
     from unittest.mock import patch
 
-    # Mock Chroma collection query and add to avoid external Voyage API calls
+    # Mock Chroma collection query and add to avoid external API calls
     mock_query_res = {
         "ids": [["dummy_chunk_1", "dummy_chunk_2"]],
         "documents": [["This is a dummy document about search optimization.", "Caching results makes it faster."]],
