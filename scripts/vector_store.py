@@ -59,13 +59,13 @@ class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
             raise RuntimeError("Embedding failed, please try again")
 
         embeddings = []
-        batch_size = 30  # Batch 30 chunks per request to safely stay under TPM rate limits
-        max_retries = 3
+        batch_size = 50  # 50 chunks per batch request
+        max_retries = 5
 
         for i in range(0, len(input), batch_size):
             batch = input[i:i + batch_size]
             
-            # Delay between consecutive batch requests to safely respect free-tier rate limits
+            # Delay between consecutive batch requests to respect free-tier rate limits
             if i > 0:
                 time.sleep(1.0)
 
@@ -84,17 +84,19 @@ class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
                         f"{self.url}?key={clean_key}",
                         headers={"Content-Type": "application/json"},
                         json={"requests": requests_payload},
-                        timeout=30,
+                        timeout=35,
                     )
                     
                     if response.status_code in (429, 500, 502, 503, 504):
-                        wait_time = 2 ** (attempt + 1)
                         retry_after = response.headers.get("Retry-After")
                         if retry_after:
                             try:
                                 wait_time = float(retry_after)
                             except ValueError:
-                                pass
+                                wait_time = 2.0 ** (attempt + 1)
+                        else:
+                            wait_time = max(4.0, 2.0 ** (attempt + 1))
+                        
                         print(f"[WARN] Gemini Embedding HTTP {response.status_code} (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.1f}s...")
                         time.sleep(wait_time)
                         continue
@@ -110,7 +112,7 @@ class GeminiEmbeddingFunction(chromadb.EmbeddingFunction):
                 except requests.exceptions.RequestException as e:
                     print(f"[WARN] Gemini embedding attempt {attempt + 1}/{max_retries} failed: {e}")
                     if attempt < max_retries - 1:
-                        time.sleep(2 ** (attempt + 1))
+                        time.sleep(2 * (attempt + 1))
                     else:
                         break
 
