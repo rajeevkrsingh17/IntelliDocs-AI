@@ -14,7 +14,7 @@
 ![Gemini Embeddings](https://img.shields.io/badge/Embeddings-Gemini--Embedding-blue?logo=google)
 ![ChromaDB](https://img.shields.io/badge/Vector%20DB-ChromaDB-green)
 ![Gemini](https://img.shields.io/badge/LLM-Google%20Gemini-4285F4?logo=google)
-![Pytest](https://img.shields.io/badge/Testing-Pytest%20(10%20Passed)-yellow?logo=pytest)
+![Pytest](https://img.shields.io/badge/Testing-Pytest%20(13%20Passed)-yellow?logo=pytest)
 ![Status](https://img.shields.io/badge/Status-Milestone%20Complete-brightgreen)
 
 </p>
@@ -165,8 +165,7 @@ pip install -r requirements.txt
 Create a `.env` file in the `scripts/` directory:
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
-VOYAGE_API_KEY=your_voyage_api_key_here
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
 ### Step 4: Run the Application
