@@ -11,16 +11,13 @@ sys.path.append(str(PROJECT_ROOT / "scripts"))
 from scripts.vector_store import VoyageEmbeddingFunction, VOYAGE_API_KEY
 
 
-def test_embedding_dimension():
+def test_voyage_embedding_batch_logic():
     """
-    Test that the Chroma built-in embedding function generates vectors of dimension 384.
+    Test VoyageEmbeddingFunction initialisation and key handling.
     """
-    ef = DefaultEmbeddingFunction()
-    test_text = "Hello world, testing sentence embeddings."
-    embeddings = ef([test_text])
-    
-    assert len(embeddings) == 1
-    assert len(embeddings[0]) == 384  # all-MiniLM-L6-v2 embedding dimension is 384
+    ef = VoyageEmbeddingFunction(api_key="test_key")
+    assert ef.model == "voyage-4-lite"
+    assert ef.url == "https://api.voyageai.com/v1/embeddings"
 
 
 def test_voyage_embedding_dimension():

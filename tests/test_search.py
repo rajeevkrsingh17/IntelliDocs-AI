@@ -35,19 +35,28 @@ def test_bm25_cache_hits():
     and retrieves from the cache on subsequent queries.
     """
     from search import retrieve_relevant_chunks, _BM25_CACHE, get_collection
-    
-    collection = get_collection()
-    
-    # Add dummy document to verify retrieval.
-    # We let Chroma auto-generate the 384-dimension embeddings via the configured ONNX function.
-    collection.add(
-        ids=["dummy_chunk_1", "dummy_chunk_2"],
-        documents=["This is a dummy document about search optimization.", "Caching results makes it faster."],
-        metadatas=[{"document_name": "dummy.txt", "session_id": "test_session", "chunk": 1, "page": 1},
-                   {"document_name": "dummy.txt", "session_id": "test_session", "chunk": 2, "page": 1}]
-    )
-    
-    try:
+    from unittest.mock import patch
+
+    # Mock Chroma collection query and add to avoid external Voyage API calls
+    mock_query_res = {
+        "ids": [["dummy_chunk_1", "dummy_chunk_2"]],
+        "documents": [["This is a dummy document about search optimization.", "Caching results makes it faster."]],
+        "metadatas": [[{"document_name": "dummy.txt", "session_id": "test_session", "chunk": 1, "page": 1},
+                       {"document_name": "dummy.txt", "session_id": "test_session", "chunk": 2, "page": 1}]],
+        "distances": [[0.1, 0.2]]
+    }
+
+    with patch("search.get_collection") as mock_get_col:
+        mock_col = mock_get_col.return_value
+        mock_col.count.return_value = 2
+        mock_col.query.return_value = mock_query_res
+        mock_col.get.return_value = {
+            "ids": ["dummy_chunk_1", "dummy_chunk_2"],
+            "documents": ["This is a dummy document about search optimization.", "Caching results makes it faster."],
+            "metadatas": [{"document_name": "dummy.txt", "session_id": "test_session", "chunk": 1, "page": 1},
+                          {"document_name": "dummy.txt", "session_id": "test_session", "chunk": 2, "page": 1}]
+        }
+
         # Clear the cache to start clean
         _BM25_CACHE.cache.clear()
         
@@ -68,7 +77,3 @@ def test_bm25_cache_hits():
         bm25_scorer_2, _, _ = cached_val_2
         
         assert bm25_scorer_1 is bm25_scorer_2
-        
-    finally:
-        # Clean up dummy data from collection
-        collection.delete(ids=["dummy_chunk_1", "dummy_chunk_2"])

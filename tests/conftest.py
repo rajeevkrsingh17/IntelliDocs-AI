@@ -1,8 +1,9 @@
-import os
-import pytest
+import chromadb
 import scripts.vector_store
 
-# Disable Voyage embedding function globally during unit tests
-# to keep them fast, offline-friendly, and safe from API daily limits.
-scripts.vector_store.VOYAGE_API_KEY = None
-scripts.vector_store._EF_VOYAGE = None
+class MockVoyageEmbeddingFunction(chromadb.EmbeddingFunction):
+    def __call__(self, input: chromadb.Documents) -> chromadb.Embeddings:
+        return [[0.0] * 512 for _ in input]
+
+if not scripts.vector_store._EF_VOYAGE:
+    scripts.vector_store._EF_VOYAGE = MockVoyageEmbeddingFunction()

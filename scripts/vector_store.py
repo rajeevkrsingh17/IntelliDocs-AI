@@ -1,11 +1,11 @@
 import re
 import shutil
+import time
 from pathlib import Path
 from datetime import datetime
 
 import chromadb
 import os
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 from dotenv import load_dotenv
 import requests
 
@@ -43,6 +43,7 @@ class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
     """
     Custom ChromaDB Embedding Function that calls Voyage AI API.
     Uses 'voyage-4-lite' model with 512 dimensions.
+    Sends batched requests (max 128 texts per batch) with exponential backoff retries.
     """
     def __init__(self, api_key: str):
         self.api_key = _clean_env_var(api_key) or ""
@@ -53,42 +54,72 @@ class VoyageEmbeddingFunction(chromadb.EmbeddingFunction):
         if not input:
             return []
         
-        embeddings = []
-        batch_size = 128  # Voyage AI supports up to 128 inputs per request
         clean_key = _clean_env_var(self.api_key) or ""
+        if not clean_key:
+            raise RuntimeError("Embedding service temporarily unavailable, please try again")
+
         headers = {
             "Authorization": f"Bearer {clean_key}",
             "Content-Type": "application/json"
         }
+
+        embeddings = []
+        batch_size = 128  # Voyage AI limit is 128 inputs per HTTP POST
+        max_retries = 5
+
         for i in range(0, len(input), batch_size):
             batch = input[i:i + batch_size]
-            try:
-                response = requests.post(
-                    self.url,
-                    headers=headers,
-                    json={
-                        "input": batch,
-                        "model": self.model,
-                        "output_dimension": 512
-                    },
-                    timeout=10,
-                )
-                response.raise_for_status()
-                data = response.json()
-                sorted_data = sorted(data["data"], key=lambda x: x["index"])
-                for item in sorted_data:
-                    embeddings.append(item["embedding"])
-            except Exception as e:
-                print(f"[WARN] Voyage AI embedding API call failed: {e}")
-                raise e
+            
+            # Small delay between consecutive batch requests to respect rate limits
+            if i > 0:
+                time.sleep(0.5)
+
+            batch_success = False
+            for attempt in range(max_retries):
+                try:
+                    response = requests.post(
+                        self.url,
+                        headers=headers,
+                        json={
+                            "input": batch,
+                            "model": self.model,
+                            "output_dimension": 512
+                        },
+                        timeout=30,
+                    )
+                    
+                    if response.status_code == 429:
+                        retry_after = response.headers.get("Retry-After")
+                        wait_time = float(retry_after) if retry_after else (2 ** (attempt + 1))
+                        print(f"[WARN] Voyage AI 429 Rate Limit (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.1f}s...")
+                        time.sleep(wait_time)
+                        continue
+
+                    response.raise_for_status()
+                    data = response.json()
+                    sorted_data = sorted(data["data"], key=lambda x: x["index"])
+                    for item in sorted_data:
+                        embeddings.append(item["embedding"])
+                    batch_success = True
+                    break
+
+                except requests.exceptions.RequestException as e:
+                    print(f"[WARN] Voyage AI embedding attempt {attempt + 1}/{max_retries} failed: {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2 * (attempt + 1))
+                    else:
+                        break
+
+            if not batch_success:
+                print(f"[ERROR] Voyage AI batch embedding failed after {max_retries} attempts.")
+                raise RuntimeError("Embedding service temporarily unavailable, please try again")
+
         return embeddings
 
 VOYAGE_API_KEY = _clean_env_var(os.getenv("VOYAGE_API_KEY"))
 
-# Initialize embedding functions
-_EF_ONNX = DefaultEmbeddingFunction()
+# Initialize embedding function
 _EF_VOYAGE = None
-_use_onnx_fallback = False
 
 if VOYAGE_API_KEY:
     try:
@@ -97,7 +128,7 @@ if VOYAGE_API_KEY:
     except Exception as e:
         print(f"[WARN] Failed to initialize Voyage Embedding Function: {e}")
 else:
-    print("[WARN] VOYAGE_API_KEY not found. Using local ONNX embeddings.")
+    print("[WARN] VOYAGE_API_KEY not set.")
 
 # ------------------------------------------------
 # Chroma Collection
@@ -105,13 +136,12 @@ else:
 
 def get_collection():
     """
-    Returns the appropriate collection based on whether Voyage API is available and active.
+    Returns the ChromaDB collection configured with Voyage AI embeddings.
     """
     client = chromadb.PersistentClient(path=str(DB_PATH))
-    if _EF_VOYAGE is not None and not _use_onnx_fallback:
-        return client.get_or_create_collection("intellidocs_voyage", embedding_function=_EF_VOYAGE)
-    else:
-        return client.get_or_create_collection("intellidocs", embedding_function=_EF_ONNX)
+    if _EF_VOYAGE is None:
+        raise RuntimeError("Embedding service temporarily unavailable, please try again")
+    return client.get_or_create_collection("intellidocs_voyage", embedding_function=_EF_VOYAGE)
 
 
 
@@ -262,7 +292,7 @@ def process_document(file_path, session_id=None):
             meta_entry["session_id"] = session_id
         metadatas.append(meta_entry)
 
-    # ChromaDB calls _EF(all_chunks) internally — runs Gemini or ONNX depending on config
+    # ChromaDB calls _EF_VOYAGE(all_chunks) internally (batched up to 128 chunks per API call)
     try:
         collection.add(
             ids=ids,
@@ -270,34 +300,10 @@ def process_document(file_path, session_id=None):
             metadatas=metadatas,
         )
     except Exception as exc:
-        print(f"[WARN] Embedding function failed ({exc}). Falling back to local ONNX embeddings...")
-        global _use_onnx_fallback
-        _use_onnx_fallback = True
-        
-        # Re-fetch the ONNX collection
-        collection = get_collection()
-        
-        # Re-calculate index for safety since collection changed
-        base_count = collection.count()
-        ids = []
-        for i in range(len(all_chunks)):
-            ids.append(f"{file_path.stem}_chunk_{base_count + i}")
-        
-        # Remove existing chunks for this document in the ONNX collection if re-uploaded
-        try:
-            delete_clause = {"document_name": file_path.name}
-            if session_id:
-                delete_clause = {"$and": [{"document_name": file_path.name}, {"session_id": session_id}]}
-            collection.delete(where=delete_clause)
-        except Exception:
-            pass
-        
-        # Add to ONNX collection
-        collection.add(
-            ids=ids,
-            documents=all_chunks,
-            metadatas=metadatas,
-        )
+        print(f"[ERROR] Failed to store document chunks: {exc}")
+        if "temporarily unavailable" in str(exc):
+            raise exc
+        raise RuntimeError("Embedding service temporarily unavailable, please try again") from exc
 
     print(f"Added {len(all_chunks)} chunks.")
 
