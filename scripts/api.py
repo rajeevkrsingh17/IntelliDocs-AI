@@ -71,14 +71,16 @@ async def add_cors_headers(request: Request, call_next):
 # even when the server crashes with an unhandled 500 error.
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    origin = request.headers.get("origin", "*")
+    origin = request.headers.get("origin") or request.headers.get("Origin") or "*"
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc)},
         headers={
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
         },
     )
 
@@ -88,28 +90,32 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    origin = request.headers.get("origin", "*")
+    origin = request.headers.get("origin") or request.headers.get("Origin") or "*"
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers={
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
         },
     )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    origin = request.headers.get("origin", "*")
+    origin = request.headers.get("origin") or request.headers.get("Origin") or "*"
     return JSONResponse(
         status_code=422,
         content={"detail": exc.errors()},
         headers={
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
         },
     )
 
